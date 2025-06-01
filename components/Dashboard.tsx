@@ -259,8 +259,8 @@ const Dashboard: React.FC<DashboardProps> = ({
       };
     });
     
+    // Only update local state, don't call onAddAnnouncement at all
     setLocalAnnouncements(updatedAnnouncements);
-    onAddAnnouncement(JSON.stringify(updatedAnnouncements));
   }, [currentUser, localAnnouncements]);
 
   const handleCommentReaction = useCallback((announcementId: string, commentId: string, emoji: string) => {
@@ -306,8 +306,8 @@ const Dashboard: React.FC<DashboardProps> = ({
       };
     });
     
+    // Only update local state, don't call onAddAnnouncement at all
     setLocalAnnouncements(updatedAnnouncements);
-    onAddAnnouncement(JSON.stringify(updatedAnnouncements));
   }, [currentUser, localAnnouncements]);
 
   const handleReplyReaction = useCallback((announcementId: string, commentId: string, replyId: string, emoji: string) => {
@@ -360,8 +360,8 @@ const Dashboard: React.FC<DashboardProps> = ({
       };
     });
     
+    // Only update local state, don't call onAddAnnouncement at all
     setLocalAnnouncements(updatedAnnouncements);
-    onAddAnnouncement(JSON.stringify(updatedAnnouncements));
   }, [currentUser, localAnnouncements]);
 
   const [isAdminResolveSwapModalOpen, setIsAdminResolveSwapModalOpen] = useState(false);
@@ -471,10 +471,11 @@ const Dashboard: React.FC<DashboardProps> = ({
     );
   };
 
-  const handlePostAnnouncement = (content: string) => {
+  const handlePostAnnouncement = useCallback((content: string) => {
+    if (!content.trim()) return;
     onAddAnnouncement(content);
     setIsAddAnnouncementModalOpen(false);
-  };
+  }, [onAddAnnouncement]);
 
   const handleOpenSwapRequestModal = (date: string, role: UserRole, serviceType?: ServiceType) => {
     const originalAvailabilityId = createOriginalAvailabilityId(currentUser.id, date, role, serviceType);

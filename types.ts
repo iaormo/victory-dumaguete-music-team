@@ -50,8 +50,42 @@ export type UpdateDateStatusFn = (date: string, status: DateStatusType | null) =
 export interface Announcement {
   id: string;
   content: string;
-  timestamp: string; // ISO string
   authorName: string;
+  authorId: string;
+  timestamp: string; // ISO string
+  likes: string[]; // Array of user IDs who liked the post
+  comments: Comment[];
+  reactions: Reaction[];
+}
+
+export interface Comment {
+  id: string;
+  authorId: string;
+  authorName: string;
+  content: string;
+  timestamp: string; // ISO string
+  likes: string[]; // Array of user IDs who liked the comment
+  replies: Reply[];
+  reactions: Reaction[]; // Array of reactions on the comment
+}
+
+export interface Reply {
+  id: string;
+  authorId: string;
+  authorName: string;
+  content: string;
+  timestamp: string; // ISO string
+  likes: string[]; // Array of user IDs who liked the reply
+  reactions: Reaction[]; // Array of reactions on the reply
+}
+
+export interface Reaction {
+  id: string;
+  authorId: string;
+  authorName: string;
+  emoji: string;
+  label: string;
+  timestamp: string;
 }
 
 export interface CustomEvent {

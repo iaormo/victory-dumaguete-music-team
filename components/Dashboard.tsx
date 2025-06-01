@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { User, Availability, UserRole, ServiceType, DateStatusType, UpdateDateStatusFn, Announcement, CustomEvent, SwapRequest, SwapRequestStatus } from '../types';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import { User, Availability, UserRole, ServiceType, DateStatusType, UpdateDateStatusFn, Announcement, CustomEvent, SwapRequest, SwapRequestStatus, Comment, Reply, Reaction } from '../types';
 import { ALL_ROLES, MONTH_NAMES, APP_NAME, SERVICE_TYPE_ABBREVIATIONS, createOriginalAvailabilityId } from '../constants'; 
 import CalendarGrid from './CalendarGrid';
 import AvailabilityModal from './AvailabilityModal';
@@ -146,8 +146,223 @@ const Dashboard: React.FC<DashboardProps> = ({
   const [isEmbedCodeModalOpen, setIsEmbedCodeModalOpen] = useState(false); 
   const [isManageCustomEventsModalOpen, setIsManageCustomEventsModalOpen] = useState(false);
   
+  const [localAnnouncements, setLocalAnnouncements] = useState<Announcement[]>(announcements);
   const [isSwapRequestModalOpen, setIsSwapRequestModalOpen] = useState(false);
   const [slotToRequestSwapFor, setSlotToRequestSwapFor] = useState<{ date: string, role: UserRole, serviceType?: ServiceType, originalAvailabilityId: string } | null>(null);
+
+  useEffect(() => {
+    // Ensure all announcements have reactions arrays initialized
+    const initializedAnnouncements = announcements.map(announcement => ({
+      ...announcement,
+      reactions: announcement.reactions || [],
+      comments: (announcement.comments || []).map(comment => ({
+        ...comment,
+        reactions: comment.reactions || [],
+        replies: (comment.replies || []).map(reply => ({
+          ...reply,
+          reactions: reply.reactions || []
+        }))
+      }))
+    }));
+    setLocalAnnouncements(initializedAnnouncements);
+  }, [announcements]);
+
+  const handleAddComment = useCallback((announcementId: string, content: string) => {
+    const newComment: Comment = {
+      id: Date.now().toString(),
+      authorId: currentUser.id,
+      authorName: currentUser.name,
+      content,
+      timestamp: new Date().toISOString(),
+      likes: [],
+      replies: [],
+      reactions: []
+    };
+    
+    const updatedAnnouncements = localAnnouncements.map(announcement => {
+      if (announcement.id !== announcementId) return announcement;
+      
+      return {
+        ...announcement,
+        comments: [...(announcement.comments || []), newComment]
+      };
+    });
+    
+    // Just update local state, don't call onAddAnnouncement
+    setLocalAnnouncements(updatedAnnouncements);
+  }, [currentUser, localAnnouncements]);
+
+  const handleAddReply = useCallback((announcementId: string, commentId: string, content: string) => {
+    const newReply: Reply = {
+      id: Date.now().toString(),
+      authorId: currentUser.id,
+      authorName: currentUser.name,
+      content,
+      timestamp: new Date().toISOString(),
+      likes: [],
+      reactions: []
+    };
+
+    const updatedAnnouncements = localAnnouncements.map(announcement => {
+      if (announcement.id !== announcementId) return announcement;
+      
+      return {
+        ...announcement,
+        comments: (announcement.comments || []).map(comment => 
+          comment.id === commentId 
+            ? { 
+                ...comment, 
+                replies: [...(comment.replies || []), newReply] 
+              }
+            : comment
+        )
+      };
+    });
+    
+    // Just update local state, don't call onAddAnnouncement
+    setLocalAnnouncements(updatedAnnouncements);
+  }, [currentUser, localAnnouncements]);
+
+  const handleAnnouncementReaction = useCallback((announcementId: string, emoji: string) => {
+    // Default to emoji as label if no label is provided
+    const label = emoji;
+    const newReaction: Reaction = {
+      id: Date.now().toString(),
+      authorId: currentUser.id,
+      authorName: currentUser.name,
+      emoji,
+      label,
+      timestamp: new Date().toISOString()
+    };
+    
+    const updatedAnnouncements = localAnnouncements.map(announcement => {
+      if (announcement.id !== announcementId) return announcement;
+      
+      // Check if user already has a reaction with this emoji
+      const existingReactionIndex = (announcement.reactions || []).findIndex(
+        r => r.authorId === currentUser.id && r.emoji === emoji
+      );
+      
+      let updatedReactions;
+      if (existingReactionIndex >= 0) {
+        // Replace existing reaction
+        updatedReactions = [...announcement.reactions];
+        updatedReactions[existingReactionIndex] = newReaction;
+      } else {
+        // Add new reaction
+        updatedReactions = [...announcement.reactions, newReaction];
+      }
+      
+      return {
+        ...announcement,
+        reactions: updatedReactions
+      };
+    });
+    
+    setLocalAnnouncements(updatedAnnouncements);
+    onAddAnnouncement(JSON.stringify(updatedAnnouncements));
+  }, [currentUser, localAnnouncements]);
+
+  const handleCommentReaction = useCallback((announcementId: string, commentId: string, emoji: string) => {
+    // Default to emoji as label if no label is provided
+    const label = emoji;
+    const newReaction: Reaction = {
+      id: Date.now().toString(),
+      authorId: currentUser.id,
+      authorName: currentUser.name,
+      emoji,
+      label,
+      timestamp: new Date().toISOString()
+    };
+    
+    const updatedAnnouncements = localAnnouncements.map(announcement => {
+      if (announcement.id !== announcementId) return announcement;
+      
+      return {
+        ...announcement,
+        comments: (announcement.comments || []).map(comment => {
+          if (comment.id !== commentId) return comment;
+          
+          // Check if user already has a reaction with this emoji
+          const existingReactionIndex = (comment.reactions || []).findIndex(
+            r => r.authorId === currentUser.id && r.emoji === emoji
+          );
+          
+          let updatedReactions;
+          if (existingReactionIndex >= 0) {
+            // Replace existing reaction
+            updatedReactions = [...comment.reactions];
+            updatedReactions[existingReactionIndex] = newReaction;
+          } else {
+            // Add new reaction
+            updatedReactions = [...comment.reactions, newReaction];
+          }
+          
+          return {
+            ...comment,
+            reactions: updatedReactions
+          };
+        })
+      };
+    });
+    
+    setLocalAnnouncements(updatedAnnouncements);
+    onAddAnnouncement(JSON.stringify(updatedAnnouncements));
+  }, [currentUser, localAnnouncements]);
+
+  const handleReplyReaction = useCallback((announcementId: string, commentId: string, replyId: string, emoji: string) => {
+    // Default to emoji as label if no label is provided
+    const label = emoji;
+    const newReaction: Reaction = {
+      id: Date.now().toString(),
+      authorId: currentUser.id,
+      authorName: currentUser.name,
+      emoji,
+      label,
+      timestamp: new Date().toISOString()
+    };
+    
+    const updatedAnnouncements = localAnnouncements.map(announcement => {
+      if (announcement.id !== announcementId) return announcement;
+      
+      return {
+        ...announcement,
+        comments: (announcement.comments || []).map(comment => {
+          if (comment.id !== commentId) return comment;
+          
+          return {
+            ...comment,
+            replies: (comment.replies || []).map(reply => {
+              if (reply.id !== replyId) return reply;
+              
+              // Check if user already has a reaction with this emoji
+              const existingReactionIndex = (reply.reactions || []).findIndex(
+                r => r.authorId === currentUser.id && r.emoji === emoji
+              );
+              
+              let updatedReactions;
+              if (existingReactionIndex >= 0) {
+                // Replace existing reaction
+                updatedReactions = [...reply.reactions];
+                updatedReactions[existingReactionIndex] = newReaction;
+              } else {
+                // Add new reaction
+                updatedReactions = [...reply.reactions, newReaction];
+              }
+              
+              return {
+                ...reply,
+                reactions: updatedReactions
+              };
+            })
+          };
+        })
+      };
+    });
+    
+    setLocalAnnouncements(updatedAnnouncements);
+    onAddAnnouncement(JSON.stringify(updatedAnnouncements));
+  }, [currentUser, localAnnouncements]);
 
   const [isAdminResolveSwapModalOpen, setIsAdminResolveSwapModalOpen] = useState(false);
   const [swapRequestToResolve, setSwapRequestToResolve] = useState<SwapRequest | null>(null);
@@ -170,11 +385,9 @@ const Dashboard: React.FC<DashboardProps> = ({
     onUpdateAvailability(currentUser.id, dateString, role, serviceType, isNowAvailable);
   }, [currentUser.id, onUpdateAvailability]);
 
-
   const handleAdminModifyAvailability = useCallback((userId: string, dateString: string, role: UserRole, serviceType: ServiceType | undefined, isNowAvailable: boolean) => {
       onUpdateAvailability(userId, dateString, role, serviceType, isNowAvailable);
   }, [onUpdateAvailability]);
-
 
   const openEditRolesModal = (user: User) => {
     setUserToEditRoles(user);
@@ -308,7 +521,6 @@ const Dashboard: React.FC<DashboardProps> = ({
   const formatSwapRequestTimestamp = (isoString: string) => {
     return new Date(isoString).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
   };
-
 
   return (
     <div className="min-h-screen bg-gray-200 p-4 sm:p-6 md:p-8">
@@ -488,7 +700,15 @@ const Dashboard: React.FC<DashboardProps> = ({
               </Button>
           )}
         </div>
-        <AnnouncementBoard announcements={announcements} />
+          <AnnouncementBoard 
+            announcements={localAnnouncements}
+            currentUser={currentUser}
+            onAddComment={handleAddComment}
+            onAddReply={handleAddReply}
+            onReactToAnnouncement={handleAnnouncementReaction}
+            onReactToComment={handleCommentReaction}
+            onReactToReply={handleReplyReaction}
+          />
       </section>
 
 

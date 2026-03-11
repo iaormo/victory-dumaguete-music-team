@@ -1,0 +1,251 @@
+import React, { useState, useRef } from 'react';
+import { motion } from 'framer-motion';
+import { Camera, Mail, Shield, Save, Lock, Eye, EyeOff, User as UserIcon } from 'lucide-react';
+import Avatar from '../components/common/Avatar';
+import Badge from '../components/common/Badge';
+import { useAuth } from '../context/AuthContext';
+import { UserRole } from '../types';
+import api from '../api/client';
+import toast from 'react-hot-toast';
+
+const ProfilePage: React.FC = () => {
+  const { user, updateProfile } = useAuth();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [displayName, setDisplayName] = useState(user?.displayName || '');
+  const [preview, setPreview] = useState<string | null>(null);
+  const [avatar, setAvatar] = useState<File | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  // Password change state
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showCurrent, setShowCurrent] = useState(false);
+  const [showNew, setShowNew] = useState(false);
+  const [changingPassword, setChangingPassword] = useState(false);
+
+  const handleAvatar = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setAvatar(file);
+      setPreview(URL.createObjectURL(file));
+    }
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const formData = new FormData();
+      if (displayName !== user?.displayName) formData.append('displayName', displayName);
+      if (avatar) formData.append('avatar', avatar);
+      await updateProfile(formData);
+      toast.success('Profile updated!');
+      setAvatar(null);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to update');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handlePasswordChange = async () => {
+    if (!currentPassword || !newPassword) return toast.error('Fill in all password fields');
+    if (newPassword.length < 6) return toast.error('New password must be at least 6 characters');
+    if (newPassword !== confirmPassword) return toast.error('Passwords do not match');
+
+    setChangingPassword(true);
+    try {
+      await api.put('/auth/password', { currentPassword, newPassword });
+      toast.success('Password updated!');
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to change password');
+    } finally {
+      setChangingPassword(false);
+    }
+  };
+
+  if (!user) return null;
+
+  const hasChanges = displayName !== user.displayName || avatar !== null;
+
+  return (
+    <div className="space-y-4">
+      <motion.div
+        className="bg-white/80 backdrop-blur-sm rounded-2xl border border-white/60 shadow-[var(--shadow-card)] overflow-hidden"
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+      >
+        <div className="h-32 bg-gradient-to-r from-primary-500 to-primary-700 relative" />
+
+        <div className="relative px-6 pb-6">
+          <div className="flex justify-center -mt-14">
+            <button onClick={() => fileRef.current?.click()} className="relative group">
+              <Avatar src={preview || user.avatarUrl} name={user.displayName} size="xl" className="ring-4 ring-white" />
+              <div className="absolute bottom-0 right-0 w-8 h-8 rounded-full bg-primary-500 flex items-center justify-center ring-2 ring-white opacity-0 group-hover:opacity-100 transition-opacity">
+                <Camera className="w-4 h-4 text-white" />
+              </div>
+            </button>
+            <input ref={fileRef} type="file" accept="image/*" onChange={handleAvatar} className="hidden" />
+          </div>
+
+          <div className="text-center mt-4">
+            <div className="flex items-center justify-center gap-2 mb-1">
+              <h1 className="text-[20px] font-bold">{user.displayName}</h1>
+              {user.isAdmin && <Shield className="w-5 h-5 text-primary-500" />}
+            </div>
+            <p className="text-[14px] text-[var(--color-text-secondary)]">{user.email}</p>
+
+            <div className="flex flex-wrap justify-center gap-2 mt-3">
+              {user.roles.filter(r => r !== UserRole.ADMIN).map(r => (
+                <Badge key={r} role={r} size="md" />
+              ))}
+            </div>
+          </div>
+        </div>
+      </motion.div>
+
+      <motion.div
+        className="bg-white/80 backdrop-blur-sm rounded-2xl border border-white/60 shadow-[var(--shadow-card)] p-6"
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+      >
+        <h2 className="text-[15px] font-bold mb-5 flex items-center gap-2.5">
+          <UserIcon className="w-4 h-4 text-primary-500" />
+          Edit Profile
+        </h2>
+
+        <div className="space-y-4">
+          <div>
+            <label className="block text-[11px] font-semibold text-[var(--color-text-secondary)] mb-2 uppercase tracking-wider">Display Name</label>
+            <input
+              value={displayName}
+              onChange={e => setDisplayName(e.target.value)}
+              className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-[15px] focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
+            />
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-semibold text-[var(--color-text-secondary)] mb-2 uppercase tracking-wider">Email</label>
+            <div className="flex items-center gap-2.5 px-4 py-3 rounded-xl bg-gray-100 text-[15px] text-[var(--color-text-muted)]">
+              <Mail className="w-[18px] h-[18px] shrink-0" />
+              <span className="truncate">{user.email}</span>
+            </div>
+          </div>
+
+          {hasChanges && (
+            <motion.button
+              onClick={handleSave}
+              disabled={saving}
+              className="w-full py-3 bg-primary-500 hover:bg-primary-600 text-white rounded-xl font-semibold text-[15px] flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              whileTap={{ scale: 0.98 }}
+            >
+              {saving ? (
+                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : (
+                <>
+                  <Save className="w-4 h-4" />
+                  Save Changes
+                </>
+              )}
+            </motion.button>
+          )}
+        </div>
+      </motion.div>
+
+      {/* Password Change Section */}
+      <motion.div
+        className="bg-white/80 backdrop-blur-sm rounded-2xl border border-white/60 shadow-[var(--shadow-card)] p-6"
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2 }}
+      >
+        <h2 className="text-[15px] font-bold mb-5 flex items-center gap-2.5">
+          <Lock className="w-4 h-4 text-primary-500" />
+          Change Password
+        </h2>
+
+        <div className="space-y-4">
+          <div>
+            <label className="block text-[11px] font-semibold text-[var(--color-text-secondary)] mb-2 uppercase tracking-wider">Current Password</label>
+            <div className="relative">
+              <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-[16px] h-[16px] text-gray-400" />
+              <input
+                type={showCurrent ? 'text' : 'password'}
+                value={currentPassword}
+                onChange={e => setCurrentPassword(e.target.value)}
+                className="w-full pl-10 pr-11 py-3 rounded-xl border border-gray-200 bg-white text-[15px] focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
+                placeholder="Enter current password"
+              />
+              <button
+                type="button"
+                onClick={() => setShowCurrent(!showCurrent)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                {showCurrent ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-semibold text-[var(--color-text-secondary)] mb-2 uppercase tracking-wider">New Password</label>
+            <div className="relative">
+              <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-[16px] h-[16px] text-gray-400" />
+              <input
+                type={showNew ? 'text' : 'password'}
+                value={newPassword}
+                onChange={e => setNewPassword(e.target.value)}
+                className="w-full pl-10 pr-11 py-3 rounded-xl border border-gray-200 bg-white text-[15px] focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
+                placeholder="Min 6 characters"
+              />
+              <button
+                type="button"
+                onClick={() => setShowNew(!showNew)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                {showNew ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-semibold text-[var(--color-text-secondary)] mb-2 uppercase tracking-wider">Confirm New Password</label>
+            <div className="relative">
+              <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-[16px] h-[16px] text-gray-400" />
+              <input
+                type="password"
+                value={confirmPassword}
+                onChange={e => setConfirmPassword(e.target.value)}
+                className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 bg-white text-[15px] focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
+                placeholder="Confirm new password"
+              />
+            </div>
+          </div>
+
+          <motion.button
+            onClick={handlePasswordChange}
+            disabled={changingPassword || !currentPassword || !newPassword || !confirmPassword}
+            className="w-full py-3 bg-gray-900 hover:bg-gray-800 text-white rounded-xl font-semibold text-[15px] flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
+            whileTap={{ scale: 0.98 }}
+          >
+            {changingPassword ? (
+              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            ) : (
+              <>
+                <Lock className="w-4 h-4" />
+                Update Password
+              </>
+            )}
+          </motion.button>
+        </div>
+      </motion.div>
+    </div>
+  );
+};
+
+export default ProfilePage;

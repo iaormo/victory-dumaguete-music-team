@@ -1,0 +1,218 @@
+// Victory Dumaguete Music Team - Database Schema
+// Author: Ian James Ormo
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  VOCALIST
+  KEYBOARD
+  ACOUSTIC_GUITAR
+  LEAD_GUITAR
+  DRUMS
+  BASS_GUITAR
+}
+
+enum ServiceType {
+  MAIN_SERVICE
+  KIDS_AM
+  KIDS_PM
+}
+
+enum DateStatusType {
+  LOCKED
+  COMPLETED
+}
+
+enum SwapRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  password      String
+  displayName   String
+  avatarUrl     String?
+  roles         UserRole[]
+  isAdmin       Boolean  @default(false)
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  availabilities    Availability[]
+  announcements     Announcement[]
+  comments          Comment[]
+  replies           Reply[]
+  reactions         Reaction[]
+  swapRequests      SwapRequest[]     @relation("RequestingUser")
+  resolvedSwaps     SwapRequest[]     @relation("ResolvingAdmin")
+  sessions          Session[]
+  createdGroups     Group[]           @relation("GroupCreator")
+  groupMemberships  GroupMember[]
+
+  @@map("users")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([token])
+  @@index([userId])
+  @@map("sessions")
+}
+
+model Availability {
+  id          String       @id @default(cuid())
+  userId      String
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date        String
+  role        UserRole
+  serviceType ServiceType?
+  isAvailable Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@unique([userId, date, role, serviceType])
+  @@index([date])
+  @@map("availabilities")
+}
+
+model DateStatus {
+  id     String         @id @default(cuid())
+  date   String         @unique
+  status DateStatusType
+
+  @@map("date_statuses")
+}
+
+model Announcement {
+  id        String     @id @default(cuid())
+  content   String
+  authorId  String
+  author    User       @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  imageUrl  String?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  comments  Comment[]
+  reactions Reaction[]
+
+  @@map("announcements")
+}
+
+model Comment {
+  id             String       @id @default(cuid())
+  content        String
+  authorId       String
+  author         User         @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  announcementId String
+  announcement   Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  replies   Reply[]
+  reactions Reaction[]
+
+  @@map("comments")
+}
+
+model Reply {
+  id        String   @id @default(cuid())
+  content   String
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  commentId String
+  comment   Comment  @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  reactions Reaction[]
+
+  @@map("replies")
+}
+
+model Reaction {
+  id             String        @id @default(cuid())
+  emoji          String
+  label          String
+  authorId       String
+  author         User          @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  announcementId String?
+  announcement   Announcement? @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  commentId      String?
+  comment        Comment?      @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  replyId        String?
+  reply          Reply?        @relation(fields: [replyId], references: [id], onDelete: Cascade)
+  createdAt      DateTime      @default(now())
+
+  @@map("reactions")
+}
+
+model CustomEvent {
+  id    String @id @default(cuid())
+  date  String
+  title String
+
+  @@unique([date])
+  @@map("custom_events")
+}
+
+model SwapRequest {
+  id                     String            @id @default(cuid())
+  requestingUserId       String
+  requestingUser         User              @relation("RequestingUser", fields: [requestingUserId], references: [id], onDelete: Cascade)
+  date                   String
+  role                   UserRole
+  serviceType            ServiceType?
+  reason                 String
+  status                 SwapRequestStatus @default(PENDING)
+  adminNotes             String?
+  resolvedAt             DateTime?
+  resolvedByAdminId      String?
+  resolvedByAdmin        User?             @relation("ResolvingAdmin", fields: [resolvedByAdminId], references: [id])
+  originalAvailabilityId String
+  createdAt              DateTime          @default(now())
+
+  @@map("swap_requests")
+}
+
+model Group {
+  id          String        @id @default(cuid())
+  name        String
+  description String?
+  isPublic    Boolean       @default(true)
+  creatorId   String
+  creator     User          @relation("GroupCreator", fields: [creatorId], references: [id], onDelete: Cascade)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  members     GroupMember[]
+
+  @@map("groups")
+}
+
+model GroupMember {
+  id        String   @id @default(cuid())
+  groupId   String
+  group     Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([groupId, userId])
+  @@map("group_members")
+}

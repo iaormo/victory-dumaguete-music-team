@@ -1,0 +1,37 @@
+{
+  "name": "Victory Dumaguete Music Team",
+  "short_name": "VDMT",
+  "description": "Scheduling & Team Management Platform",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F0F2F5",
+  "theme_color": "#1565C0",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "/icons/icon-72.svg",
+      "sizes": "72x72",
+      "type": "image/svg+xml"
+    },
+    {
+      "src": "/icons/icon-192.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ],
+  "categories": ["productivity", "utilities"],
+  "prefer_related_applications": false
+}

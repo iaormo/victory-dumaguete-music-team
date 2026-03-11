@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { MessageCircle, Heart, ThumbsUp, Laugh, Frown, Angry, Share2, MoreHorizontal } from 'lucide-react';
+import { MessageCircle, Heart, ThumbsUp, Laugh, Frown, Angry, Share2, MoreHorizontal, Trash2 } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import Avatar from '../common/Avatar';
+import MentionText from '../common/MentionText';
 import CommentSection from './CommentSection';
 import type { Announcement, Reaction } from '../../types';
 import { useAuth } from '../../context/AuthContext';
@@ -26,6 +27,21 @@ const PostCard: React.FC<PostCardProps> = ({ post, onUpdate }) => {
   const { user } = useAuth();
   const [showComments, setShowComments] = useState(false);
   const [showReactions, setShowReactions] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const canDelete = user?.isAdmin || user?.id === post.authorId;
+
+  const handleDelete = async () => {
+    if (!confirm('Delete this post?')) return;
+    setDeleting(true);
+    try {
+      await api.delete(`/announcements/${post.id}`);
+      onUpdate();
+    } catch {
+      setDeleting(false);
+    }
+  };
 
   const myReaction = post.reactions.find(r => r.authorId === user?.id);
   const reactionGroups = post.reactions.reduce<Record<string, number>>((acc, r) => {
@@ -57,16 +73,42 @@ const PostCard: React.FC<PostCardProps> = ({ post, onUpdate }) => {
             <p className="font-semibold text-[14px] text-[var(--color-text-primary)] leading-tight">{post.author.displayName}</p>
             <p className="text-[12px] text-[var(--color-text-muted)] mt-0.5" title={format(new Date(post.createdAt), 'PPpp')}>{timeAgo}</p>
           </div>
-          <button className="w-8 h-8 rounded-full hover:bg-[var(--color-surface)] flex items-center justify-center transition-colors shrink-0">
-            <MoreHorizontal className="w-[18px] h-[18px] text-[var(--color-text-muted)]" />
-          </button>
+          <div className="relative">
+            <button onClick={() => setShowMenu(!showMenu)} className="w-8 h-8 rounded-full hover:bg-[var(--color-surface)] flex items-center justify-center transition-colors shrink-0">
+              <MoreHorizontal className="w-[18px] h-[18px] text-[var(--color-text-muted)]" />
+            </button>
+            {showMenu && (
+              <motion.div
+                className="absolute right-0 top-full mt-1 bg-white rounded-xl shadow-lg border border-[var(--color-border)] z-20 py-1 min-w-[140px]"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                onMouseLeave={() => setShowMenu(false)}
+              >
+                {canDelete && (
+                  <button
+                    onClick={handleDelete}
+                    disabled={deleting}
+                    className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[13px] text-red-600 hover:bg-red-50 transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    {deleting ? 'Deleting...' : 'Delete Post'}
+                  </button>
+                )}
+                {!canDelete && (
+                  <div className="px-4 py-2.5 text-[13px] text-[var(--color-text-muted)]">No actions</div>
+                )}
+              </motion.div>
+            )}
+          </div>
         </div>
 
-        <p className="mt-3 text-[15px] text-[var(--color-text-primary)] leading-relaxed whitespace-pre-wrap">{post.content}</p>
+        <p className="mt-3 text-[15px] text-[var(--color-text-primary)] leading-relaxed whitespace-pre-wrap">
+          <MentionText text={post.content} />
+        </p>
 
         {post.imageUrl && (
-          <div className="mt-3 -mx-4">
-            <img src={post.imageUrl} alt="" className="w-full max-h-96 object-cover" loading="lazy" />
+          <div className="mt-3 -mx-4 bg-gray-100">
+            <img src={post.imageUrl} alt="" className="w-full max-h-[500px] object-contain" loading="lazy" />
           </div>
         )}
       </div>

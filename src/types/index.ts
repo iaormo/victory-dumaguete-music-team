@@ -59,8 +59,12 @@ export enum SwapRequestStatus {
 export interface User {
   id: string;
   email: string;
+  username?: string | null;
   displayName: string;
   avatarUrl: string | null;
+  birthday?: string | null;
+  phone?: string | null;
+  address?: string | null;
   roles: UserRole[];
   isAdmin: boolean;
   createdAt?: string;
@@ -124,14 +128,14 @@ export interface SwapRequest {
   id: string;
   requestingUserId: string;
   requestingUser: Pick<User, 'id' | 'displayName' | 'avatarUrl' | 'roles'>;
+  targetUserId?: string | null;
+  targetUser?: Pick<User, 'id' | 'displayName' | 'avatarUrl' | 'roles'> | null;
   date: string;
   role: UserRole;
   serviceType: ServiceType | null;
   reason: string;
   status: SwapRequestStatus;
-  adminNotes?: string | null;
   resolvedAt?: string | null;
-  resolvedByAdmin?: Pick<User, 'id' | 'displayName'> | null;
   originalAvailabilityId: string;
   createdAt: string;
 }
@@ -151,6 +155,28 @@ export interface Group {
   creatorId: string;
   creator: Pick<User, 'id' | 'displayName' | 'avatarUrl'>;
   members: GroupMember[];
+  createdAt: string;
+}
+
+export interface AppNotification {
+  id: string;
+  userId: string;
+  fromId: string;
+  from: Pick<User, 'id' | 'displayName' | 'avatarUrl'>;
+  type: string;
+  message: string;
+  link?: string | null;
+  isRead: boolean;
+  createdAt: string;
+}
+
+export interface GroupMessage {
+  id: string;
+  content: string;
+  imageUrl?: string | null;
+  authorId: string;
+  author: Pick<User, 'id' | 'displayName' | 'avatarUrl'>;
+  groupId: string;
   createdAt: string;
 }
 

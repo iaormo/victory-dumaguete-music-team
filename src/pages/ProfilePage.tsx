@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { Camera, Mail, Shield, Save, Lock, Eye, EyeOff, User as UserIcon } from 'lucide-react';
+import { Camera, Mail, Shield, Save, Lock, Eye, EyeOff, User as UserIcon, AtSign, Cake, Phone, MapPin } from 'lucide-react';
 import Avatar from '../components/common/Avatar';
 import Badge from '../components/common/Badge';
 import { useAuth } from '../context/AuthContext';
@@ -12,6 +12,10 @@ const ProfilePage: React.FC = () => {
   const { user, updateProfile } = useAuth();
   const fileRef = useRef<HTMLInputElement>(null);
   const [displayName, setDisplayName] = useState(user?.displayName || '');
+  const [username, setUsername] = useState(user?.username || '');
+  const [birthday, setBirthday] = useState(user?.birthday ? new Date(user.birthday).toISOString().split('T')[0] : '');
+  const [phone, setPhone] = useState(user?.phone || '');
+  const [address, setAddress] = useState(user?.address || '');
   const [preview, setPreview] = useState<string | null>(null);
   const [avatar, setAvatar] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
@@ -37,9 +41,18 @@ const ProfilePage: React.FC = () => {
     try {
       const formData = new FormData();
       if (displayName !== user?.displayName) formData.append('displayName', displayName);
+      if (username !== (user?.username || '')) formData.append('username', username);
+      const origBirthday = user?.birthday ? new Date(user.birthday).toISOString().split('T')[0] : '';
+      if (birthday !== origBirthday) formData.append('birthday', birthday);
+      if (phone !== (user?.phone || '')) formData.append('phone', phone);
+      if (address !== (user?.address || '')) formData.append('address', address);
       if (avatar) formData.append('avatar', avatar);
-      await updateProfile(formData);
-      toast.success('Profile updated!');
+      const result = await updateProfile(formData);
+      if (result?.warning) {
+        toast(result.warning, { icon: '\u26a0\ufe0f' });
+      } else {
+        toast.success('Profile updated!');
+      }
       setAvatar(null);
     } catch (err: any) {
       toast.error(err.message || 'Failed to update');
@@ -69,7 +82,8 @@ const ProfilePage: React.FC = () => {
 
   if (!user) return null;
 
-  const hasChanges = displayName !== user.displayName || avatar !== null;
+  const origBirthday = user.birthday ? new Date(user.birthday).toISOString().split('T')[0] : '';
+  const hasChanges = displayName !== user.displayName || username !== (user.username || '') || birthday !== origBirthday || phone !== (user.phone || '') || address !== (user.address || '') || avatar !== null;
 
   return (
     <div className="space-y-4">
@@ -96,6 +110,9 @@ const ProfilePage: React.FC = () => {
               <h1 className="text-[20px] font-bold">{user.displayName}</h1>
               {user.isAdmin && <Shield className="w-5 h-5 text-primary-500" />}
             </div>
+            {user.username && (
+              <p className="text-[13px] text-primary-500 font-medium">@{user.username}</p>
+            )}
             <p className="text-[14px] text-[var(--color-text-secondary)]">{user.email}</p>
 
             <div className="flex flex-wrap justify-center gap-2 mt-3">
@@ -129,10 +146,64 @@ const ProfilePage: React.FC = () => {
           </div>
 
           <div>
+            <label className="block text-[11px] font-semibold text-[var(--color-text-secondary)] mb-2 uppercase tracking-wider">Username</label>
+            <div className="relative">
+              <AtSign className="absolute left-3.5 top-1/2 -translate-y-1/2 w-[16px] h-[16px] text-gray-400" />
+              <input
+                value={username}
+                onChange={e => setUsername(e.target.value)}
+                className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 bg-white text-[15px] focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
+                placeholder="Choose a username"
+              />
+            </div>
+          </div>
+
+          <div>
             <label className="block text-[11px] font-semibold text-[var(--color-text-secondary)] mb-2 uppercase tracking-wider">Email</label>
             <div className="flex items-center gap-2.5 px-4 py-3 rounded-xl bg-gray-100 text-[15px] text-[var(--color-text-muted)]">
               <Mail className="w-[18px] h-[18px] shrink-0" />
               <span className="truncate">{user.email}</span>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-semibold text-[var(--color-text-secondary)] mb-2 uppercase tracking-wider">Birthday</label>
+            <div className="relative">
+              <Cake className="absolute left-3.5 top-1/2 -translate-y-1/2 w-[16px] h-[16px] text-gray-400" />
+              <input
+                type="date"
+                value={birthday}
+                onChange={e => setBirthday(e.target.value)}
+                className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 bg-white text-[15px] focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-semibold text-[var(--color-text-secondary)] mb-2 uppercase tracking-wider">Phone Number</label>
+            <div className="relative">
+              <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-[16px] h-[16px] text-gray-400" />
+              <input
+                type="tel"
+                value={phone}
+                onChange={e => setPhone(e.target.value)}
+                className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 bg-white text-[15px] focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
+                placeholder="Enter phone number"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-semibold text-[var(--color-text-secondary)] mb-2 uppercase tracking-wider">Address</label>
+            <div className="relative">
+              <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 w-[16px] h-[16px] text-gray-400" />
+              <input
+                type="text"
+                value={address}
+                onChange={e => setAddress(e.target.value)}
+                className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 bg-white text-[15px] focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
+                placeholder="Enter your address"
+              />
             </div>
           </div>
 

@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Image, Send, X } from 'lucide-react';
 import Avatar from '../common/Avatar';
+import MentionInput from '../common/MentionInput';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../api/client';
 import toast from 'react-hot-toast';
@@ -54,7 +55,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated }) => {
     }
   };
 
-  if (!user?.isAdmin) return null;
+  if (!user) return null;
 
   return (
     <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-white/60 shadow-[var(--shadow-card)] overflow-hidden">
@@ -62,11 +63,11 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated }) => {
         <div className="flex items-start gap-3">
           <Avatar src={user.avatarUrl} name={user.displayName} size="md" />
           <div className="flex-1">
-            <textarea
+            <MentionInput
               value={content}
-              onChange={e => setContent(e.target.value)}
+              onChange={setContent}
               onFocus={() => setExpanded(true)}
-              placeholder="Share an announcement with the team..."
+              placeholder="Share something with the team... Use @name to tag"
               className="w-full bg-[var(--color-surface)] rounded-xl px-4 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary-500 transition-all"
               rows={expanded ? 3 : 1}
             />
@@ -81,7 +82,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated }) => {
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
             >
-              <img src={preview} alt="Attachment" className="w-full max-h-48 object-cover rounded-xl" />
+              <img src={preview} alt="Attachment" className="w-full max-h-48 object-contain rounded-xl bg-gray-100" />
               <button
                 onClick={removeImage}
                 className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/60 flex items-center justify-center text-white hover:bg-black/80"

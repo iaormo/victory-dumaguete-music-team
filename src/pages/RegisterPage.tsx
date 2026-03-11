@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Mail, Lock, User, Camera, ArrowRight, Check } from 'lucide-react';
+import { Mail, Lock, User, Camera, ArrowRight, Check, AtSign } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { UserRole, ROLE_LABELS, ALL_ROLES } from '../types';
 import toast from 'react-hot-toast';
@@ -10,6 +10,7 @@ const RegisterPage: React.FC = () => {
   const { register } = useAuth();
   const fileRef = useRef<HTMLInputElement>(null);
   const [displayName, setDisplayName] = useState('');
+  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [roles, setRoles] = useState<UserRole[]>([]);
@@ -41,6 +42,7 @@ const RegisterPage: React.FC = () => {
       formData.append('email', email);
       formData.append('password', password);
       formData.append('roles', JSON.stringify(roles));
+      if (username.trim()) formData.append('username', username.trim());
       if (avatar) formData.append('avatar', avatar);
 
       await register(formData);
@@ -103,6 +105,20 @@ const RegisterPage: React.FC = () => {
           </div>
 
           <div>
+            <label className="block text-[11px] font-semibold text-[var(--color-text-secondary)] mb-2 uppercase tracking-wider">Username <span className="text-gray-400 normal-case">(optional)</span></label>
+            <div className="relative">
+              <AtSign className="absolute left-3.5 top-1/2 -translate-y-1/2 w-[18px] h-[18px] text-gray-400" />
+              <input
+                type="text"
+                value={username}
+                onChange={e => setUsername(e.target.value)}
+                className="w-full pl-11 pr-4 py-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] text-[15px] focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
+                placeholder="Choose a username"
+              />
+            </div>
+          </div>
+
+          <div>
             <label className="block text-[11px] font-semibold text-[var(--color-text-secondary)] mb-2 uppercase tracking-wider">Email</label>
             <div className="relative">
               <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-[18px] h-[18px] text-gray-400" />
@@ -158,7 +174,7 @@ const RegisterPage: React.FC = () => {
           <motion.button
             type="submit"
             disabled={loading}
-            className="w-full py-3 bg-primary-500 hover:bg-primary-600 text-white rounded-xl font-semibold text-[15px] flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
+            className="w-full py-3 btn-liquid-glass text-white rounded-xl font-semibold text-[15px] flex items-center justify-center gap-2 disabled:opacity-50"
             whileTap={{ scale: 0.98 }}
           >
             {loading ? (

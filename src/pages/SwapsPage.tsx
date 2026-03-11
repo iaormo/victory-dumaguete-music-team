@@ -1,29 +1,27 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeftRight, Clock, CheckCircle2, XCircle, MessageSquare, ChevronDown } from 'lucide-react';
+import { ArrowLeftRight, Clock, CheckCircle2, XCircle, MessageSquare, ArrowRight } from 'lucide-react';
 import Avatar from '../components/common/Avatar';
 import Badge from '../components/common/Badge';
-import Modal from '../components/common/Modal';
 import { useAuth } from '../context/AuthContext';
 import api from '../api/client';
 import toast from 'react-hot-toast';
-import { SwapRequestStatus, ROLE_LABELS, SERVICE_LABELS, type SwapRequest, type User } from '../types';
+import { SwapRequestStatus, ROLE_LABELS, SERVICE_LABELS, type SwapRequest } from '../types';
 
 const STATUS_CONFIG = {
   [SwapRequestStatus.PENDING]: { icon: Clock, color: 'text-amber-500', bg: 'bg-amber-50', label: 'Pending' },
-  [SwapRequestStatus.APPROVED]: { icon: CheckCircle2, color: 'text-emerald-500', bg: 'bg-emerald-50', label: 'Approved' },
-  [SwapRequestStatus.REJECTED]: { icon: XCircle, color: 'text-red-500', bg: 'bg-red-50', label: 'Rejected' },
+  [SwapRequestStatus.APPROVED]: { icon: CheckCircle2, color: 'text-emerald-500', bg: 'bg-emerald-50', label: 'Accepted' },
+  [SwapRequestStatus.REJECTED]: { icon: XCircle, color: 'text-red-500', bg: 'bg-red-50', label: 'Declined' },
 };
+
+type Tab = 'incoming' | 'sent';
 
 const SwapsPage: React.FC = () => {
   const { user } = useAuth();
   const [swaps, setSwaps] = useState<SwapRequest[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<'all' | 'mine'>('mine');
-  const [resolveSwap, setResolveSwap] = useState<SwapRequest | null>(null);
-  const [adminNotes, setAdminNotes] = useState('');
-  const [members, setMembers] = useState<User[]>([]);
-  const [replacementUserId, setReplacementUserId] = useState('');
+  const [tab, setTab] = useState<Tab>('incoming');
+  const [responding, setResponding] = useState<string | null>(null);
 
   const fetchSwaps = useCallback(async () => {
     try {
@@ -36,37 +34,26 @@ const SwapsPage: React.FC = () => {
     }
   }, []);
 
-  const fetchMembers = useCallback(async () => {
-    try {
-      const data = await api.get<User[]>('/users');
-      setMembers(data);
-    } catch {}
-  }, []);
-
   useEffect(() => { fetchSwaps(); }, [fetchSwaps]);
-  useEffect(() => { if (user?.isAdmin) fetchMembers(); }, [user?.isAdmin, fetchMembers]);
 
-  const handleResolve = async (status: 'APPROVED' | 'REJECTED') => {
-    if (!resolveSwap) return;
+  const handleRespond = async (swapId: string, status: 'APPROVED' | 'REJECTED') => {
+    setResponding(swapId);
     try {
-      await api.put(`/swaps/${resolveSwap.id}/resolve`, {
-        status,
-        adminNotes: adminNotes.trim() || null,
-        replacementUserId: status === 'APPROVED' ? replacementUserId || null : null,
-      });
-      toast.success(`Swap ${status.toLowerCase()}`);
-      setResolveSwap(null);
-      setAdminNotes('');
-      setReplacementUserId('');
+      await api.put(`/swaps/${swapId}/respond`, { status });
+      toast.success(status === 'APPROVED' ? 'Swap accepted!' : 'Swap declined');
       fetchSwaps();
     } catch (err: any) {
-      toast.error(err.message || 'Failed to resolve swap');
+      toast.error(err.message || 'Failed to respond');
+    } finally {
+      setResponding(null);
     }
   };
 
-  const displayed = filter === 'mine'
-    ? swaps.filter(s => s.requestingUserId === user?.id)
-    : swaps;
+  const incoming = swaps.filter(s => s.targetUserId === user?.id);
+  const sent = swaps.filter(s => s.requestingUserId === user?.id);
+  const displayed = tab === 'incoming' ? incoming : sent;
+
+  const incomingPendingCount = incoming.filter(s => s.status === SwapRequestStatus.PENDING).length;
 
   const pending = displayed.filter(s => s.status === SwapRequestStatus.PENDING);
   const resolved = displayed.filter(s => s.status !== SwapRequestStatus.PENDING);
@@ -83,22 +70,29 @@ const SwapsPage: React.FC = () => {
             <ArrowLeftRight className="w-5 h-5 text-primary-500" />
             <h1 className="text-[17px] font-bold">Swap Requests</h1>
           </div>
+        </div>
 
-          {user?.isAdmin && (
-            <div className="flex bg-gray-100 rounded-lg p-0.5">
-              {(['mine', 'all'] as const).map(f => (
-                <button
-                  key={f}
-                  onClick={() => setFilter(f)}
-                  className={`px-3 py-1.5 rounded-md text-[12px] font-semibold transition-all ${
-                    filter === f ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500'
-                  }`}
-                >
-                  {f === 'mine' ? 'My Swaps' : 'All Swaps'}
-                </button>
-              ))}
-            </div>
-          )}
+        {/* Tabs */}
+        <div className="flex bg-gray-100 rounded-lg p-0.5 mb-5">
+          {([
+            { key: 'incoming' as Tab, label: 'Incoming', count: incomingPendingCount },
+            { key: 'sent' as Tab, label: 'My Requests', count: 0 },
+          ]).map(t => (
+            <button
+              key={t.key}
+              onClick={() => setTab(t.key)}
+              className={`flex-1 relative px-3 py-2 rounded-md text-[12px] font-semibold transition-all ${
+                tab === t.key ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500'
+              }`}
+            >
+              {t.label}
+              {t.count > 0 && (
+                <span className="ml-1.5 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 bg-amber-500 text-white text-[10px] font-bold rounded-full">
+                  {t.count}
+                </span>
+              )}
+            </button>
+          ))}
         </div>
 
         {loading ? (
@@ -113,8 +107,14 @@ const SwapsPage: React.FC = () => {
         ) : displayed.length === 0 ? (
           <div className="text-center py-12">
             <ArrowLeftRight className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-            <p className="text-[15px] text-gray-500 font-medium">No swap requests</p>
-            <p className="text-[13px] text-gray-400 mt-1">Request a swap from the Calendar when assigned</p>
+            <p className="text-[15px] text-gray-500 font-medium">
+              {tab === 'incoming' ? 'No incoming swap requests' : 'No swap requests sent'}
+            </p>
+            <p className="text-[13px] text-gray-400 mt-1">
+              {tab === 'incoming'
+                ? 'When someone asks you to swap, it will appear here'
+                : 'Request a swap from the Calendar when assigned'}
+            </p>
           </div>
         ) : (
           <div className="space-y-6">
@@ -129,9 +129,11 @@ const SwapsPage: React.FC = () => {
                       key={swap.id}
                       swap={swap}
                       index={i}
-                      isAdmin={!!user?.isAdmin}
-                      isOwn={swap.requestingUserId === user?.id}
-                      onResolve={() => setResolveSwap(swap)}
+                      currentUserId={user?.id || ''}
+                      tab={tab}
+                      responding={responding === swap.id}
+                      onAccept={() => handleRespond(swap.id, 'APPROVED')}
+                      onDecline={() => handleRespond(swap.id, 'REJECTED')}
                     />
                   ))}
                 </div>
@@ -149,8 +151,9 @@ const SwapsPage: React.FC = () => {
                       key={swap.id}
                       swap={swap}
                       index={i}
-                      isAdmin={!!user?.isAdmin}
-                      isOwn={swap.requestingUserId === user?.id}
+                      currentUserId={user?.id || ''}
+                      tab={tab}
+                      responding={false}
                     />
                   ))}
                 </div>
@@ -159,75 +162,6 @@ const SwapsPage: React.FC = () => {
           </div>
         )}
       </motion.div>
-
-      <Modal
-        isOpen={!!resolveSwap}
-        onClose={() => { setResolveSwap(null); setAdminNotes(''); setReplacementUserId(''); }}
-        title="Resolve Swap Request"
-        footer={
-          <div className="flex justify-end gap-2">
-            <button
-              onClick={() => handleResolve('REJECTED')}
-              className="px-4 py-2.5 text-[14px] font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-            >
-              Reject
-            </button>
-            <button
-              onClick={() => handleResolve('APPROVED')}
-              className="px-5 py-2.5 bg-emerald-500 text-white text-[14px] font-semibold rounded-lg hover:bg-emerald-600 transition-colors"
-            >
-              Approve
-            </button>
-          </div>
-        }
-      >
-        {resolveSwap && (
-          <div className="space-y-4">
-            <div className="p-3 bg-gray-50 rounded-xl text-[13px]">
-              <p><span className="font-semibold">{resolveSwap.requestingUser.displayName}</span> wants to swap</p>
-              <p className="text-gray-500 mt-1">
-                {ROLE_LABELS[resolveSwap.role]} on {resolveSwap.date}
-                {resolveSwap.serviceType && ` (${SERVICE_LABELS[resolveSwap.serviceType]})`}
-              </p>
-              <p className="text-gray-500 mt-1">Reason: {resolveSwap.reason}</p>
-            </div>
-
-            <div>
-              <label className="block text-[11px] font-semibold text-gray-500 mb-2 uppercase tracking-wider">
-                Replacement Member (Optional)
-              </label>
-              <div className="relative">
-                <select
-                  value={replacementUserId}
-                  onChange={e => setReplacementUserId(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-[14px] focus:ring-2 focus:ring-primary-500 appearance-none"
-                >
-                  <option value="">No replacement</option>
-                  {members
-                    .filter(m => m.id !== resolveSwap.requestingUserId && m.roles.includes(resolveSwap.role))
-                    .map(m => (
-                      <option key={m.id} value={m.id}>{m.displayName}</option>
-                    ))}
-                </select>
-                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-[11px] font-semibold text-gray-500 mb-2 uppercase tracking-wider">
-                Admin Notes (Optional)
-              </label>
-              <textarea
-                value={adminNotes}
-                onChange={e => setAdminNotes(e.target.value)}
-                rows={2}
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-[14px] focus:ring-2 focus:ring-primary-500 resize-none"
-                placeholder="Add a note..."
-              />
-            </div>
-          </div>
-        )}
-      </Modal>
     </div>
   );
 };
@@ -235,12 +169,16 @@ const SwapsPage: React.FC = () => {
 const SwapCard: React.FC<{
   swap: SwapRequest;
   index: number;
-  isAdmin: boolean;
-  isOwn: boolean;
-  onResolve?: () => void;
-}> = ({ swap, index, isAdmin, isOwn, onResolve }) => {
+  currentUserId: string;
+  tab: Tab;
+  responding: boolean;
+  onAccept?: () => void;
+  onDecline?: () => void;
+}> = ({ swap, index, currentUserId, tab, responding, onAccept, onDecline }) => {
   const config = STATUS_CONFIG[swap.status];
   const StatusIcon = config.icon;
+  const isIncoming = tab === 'incoming';
+  const isPending = swap.status === SwapRequestStatus.PENDING;
 
   return (
     <motion.div
@@ -250,16 +188,34 @@ const SwapCard: React.FC<{
       transition={{ delay: index * 0.04 }}
     >
       <div className="flex items-start gap-3">
-        <Avatar src={swap.requestingUser.avatarUrl} name={swap.requestingUser.displayName} size="sm" />
+        <Avatar
+          src={isIncoming ? swap.requestingUser.avatarUrl : (swap.targetUser?.avatarUrl || null)}
+          name={isIncoming ? swap.requestingUser.displayName : (swap.targetUser?.displayName || '?')}
+          size="sm"
+        />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-[14px] font-semibold">{swap.requestingUser.displayName}</span>
+            {isIncoming ? (
+              <span className="text-[14px] font-semibold">{swap.requestingUser.displayName}</span>
+            ) : (
+              <div className="flex items-center gap-1.5">
+                <span className="text-[13px] text-gray-500">To</span>
+                <span className="text-[14px] font-semibold">{swap.targetUser?.displayName || 'Unknown'}</span>
+              </div>
+            )}
             <Badge role={swap.role} size="sm" />
             <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold ${config.bg} ${config.color}`}>
               <StatusIcon className="w-3 h-3" />
               {config.label}
             </span>
           </div>
+
+          {isIncoming && (
+            <p className="text-[13px] text-primary-600 font-medium mt-1">
+              Wants you to cover their {ROLE_LABELS[swap.role]} slot
+            </p>
+          )}
+
           <p className="text-[13px] text-gray-500 mt-1">
             {swap.date}{swap.serviceType && ` · ${SERVICE_LABELS[swap.serviceType]}`}
           </p>
@@ -267,20 +223,35 @@ const SwapCard: React.FC<{
             <MessageSquare className="w-3.5 h-3.5 text-gray-400 mt-0.5 shrink-0" />
             <p className="text-[13px] text-gray-600">{swap.reason}</p>
           </div>
-          {swap.adminNotes && (
-            <p className="text-[12px] text-gray-400 mt-1.5 italic">Admin: {swap.adminNotes}</p>
+
+          {/* Accept / Decline buttons for incoming pending */}
+          {isIncoming && isPending && onAccept && onDecline && (
+            <div className="flex items-center gap-2 mt-3">
+              <motion.button
+                onClick={onAccept}
+                disabled={responding}
+                className="flex items-center gap-1.5 px-4 py-2 bg-emerald-500 text-white rounded-lg text-[12px] font-semibold hover:bg-emerald-600 transition-colors disabled:opacity-50"
+                whileTap={{ scale: 0.95 }}
+              >
+                {responding ? (
+                  <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                )}
+                Accept
+              </motion.button>
+              <motion.button
+                onClick={onDecline}
+                disabled={responding}
+                className="flex items-center gap-1.5 px-4 py-2 text-red-600 bg-red-50 hover:bg-red-100 rounded-lg text-[12px] font-semibold transition-colors disabled:opacity-50"
+                whileTap={{ scale: 0.95 }}
+              >
+                <XCircle className="w-3.5 h-3.5" />
+                Decline
+              </motion.button>
+            </div>
           )}
         </div>
-
-        {isAdmin && swap.status === SwapRequestStatus.PENDING && onResolve && (
-          <motion.button
-            onClick={onResolve}
-            className="shrink-0 px-3 py-1.5 bg-primary-50 text-primary-600 rounded-lg text-[12px] font-semibold hover:bg-primary-100 transition-colors"
-            whileTap={{ scale: 0.95 }}
-          >
-            Resolve
-          </motion.button>
-        )}
       </div>
     </motion.div>
   );

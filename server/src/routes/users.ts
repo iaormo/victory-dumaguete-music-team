@@ -19,8 +19,12 @@ router.get('/', authenticate, async (_req: AuthRequest, res: Response): Promise<
       select: {
         id: true,
         email: true,
+        username: true,
         displayName: true,
         avatarUrl: true,
+        birthday: true,
+        phone: true,
+        address: true,
         roles: true,
         isAdmin: true,
         createdAt: true,
@@ -63,8 +67,12 @@ router.post('/', authenticate, requireAdmin, async (req: AuthRequest, res: Respo
       select: {
         id: true,
         email: true,
+        username: true,
         displayName: true,
         avatarUrl: true,
+        birthday: true,
+        phone: true,
+        address: true,
         roles: true,
         isAdmin: true,
         createdAt: true,
@@ -90,8 +98,12 @@ router.put('/:id/roles', authenticate, requireAdmin, async (req: AuthRequest, re
       select: {
         id: true,
         email: true,
+        username: true,
         displayName: true,
         avatarUrl: true,
+        birthday: true,
+        phone: true,
+        address: true,
         roles: true,
         isAdmin: true,
       },
@@ -102,6 +114,63 @@ router.put('/:id/roles', authenticate, requireAdmin, async (req: AuthRequest, re
   } catch (err) {
     console.error('[Users] Role update error:', err);
     res.status(500).json({ error: 'Failed to update roles' });
+  }
+});
+
+router.put('/:id', authenticate, requireAdmin, async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { displayName, birthday, phone, address } = req.body;
+    const updateData: Record<string, unknown> = {};
+
+    if (displayName) updateData.displayName = displayName;
+    if (birthday !== undefined) updateData.birthday = birthday ? new Date(birthday) : null;
+    if (phone !== undefined) updateData.phone = phone || null;
+    if (address !== undefined) updateData.address = address || null;
+
+    const user = await prisma.user.update({
+      where: { id: String(req.params.id) },
+      data: updateData,
+      select: {
+        id: true,
+        email: true,
+        username: true,
+        displayName: true,
+        avatarUrl: true,
+        birthday: true,
+        phone: true,
+        address: true,
+        roles: true,
+        isAdmin: true,
+        createdAt: true,
+      },
+    });
+
+    await cacheDel(`user:${String(req.params.id)}`);
+    res.json(user);
+  } catch (err) {
+    console.error('[Users] Update error:', err);
+    res.status(500).json({ error: 'Failed to update user' });
+  }
+});
+
+router.put('/:id/reset-password', authenticate, requireAdmin, async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { newPassword } = req.body;
+    const password = newPassword || 'victory2024';
+    if (password.length < 6) {
+      res.status(400).json({ error: 'Password must be at least 6 characters' });
+      return;
+    }
+    const hashedPassword = await bcrypt.hash(password, 12);
+    await prisma.user.update({
+      where: { id: String(req.params.id) },
+      data: { password: hashedPassword },
+    });
+    await cacheDel(`user:${String(req.params.id)}`);
+    res.json({ message: 'Password reset successfully' });
+  } catch (err) {
+    console.error('[Users] Password reset error:', err);
+    res.status(500).json({ error: 'Failed to reset password' });
   }
 });
 

@@ -58,7 +58,8 @@ export const uploadFile = async (
   const protocol = process.env.MINIO_USE_SSL === 'true' ? 'https' : 'http';
   const port = process.env.MINIO_PORT || '9000';
   const endpoint = process.env.MINIO_ENDPOINT || 'localhost';
-  return `${protocol}://${endpoint}:${port}/${BUCKET_NAME}/${objectName}`;
+  const portSuffix = (protocol === 'https' && port === '443') || (protocol === 'http' && port === '80') ? '' : `:${port}`;
+  return `${protocol}://${endpoint}${portSuffix}/${BUCKET_NAME}/${objectName}`;
 };
 
 export const deleteFile = async (objectUrl: string): Promise<void> => {

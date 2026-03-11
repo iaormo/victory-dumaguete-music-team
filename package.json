@@ -36,6 +36,9 @@
     "react-hot-toast": "^2.5.2",
     "date-fns": "^4.1.0"
   },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
   "devDependencies": {
     "@tailwindcss/vite": "^4.1.0",
     "@types/bcryptjs": "^2.4.6",

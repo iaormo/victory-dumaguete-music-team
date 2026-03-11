@@ -40,9 +40,13 @@ enum SwapRequestStatus {
 model User {
   id            String   @id @default(cuid())
   email         String   @unique
+  username      String?  @unique
   password      String
   displayName   String
   avatarUrl     String?
+  birthday      DateTime?
+  phone         String?
+  address       String?
   roles         UserRole[]
   isAdmin       Boolean  @default(false)
   isActive      Boolean  @default(true)
@@ -55,10 +59,14 @@ model User {
   replies           Reply[]
   reactions         Reaction[]
   swapRequests      SwapRequest[]     @relation("RequestingUser")
+  incomingSwaps     SwapRequest[]     @relation("TargetUser")
   resolvedSwaps     SwapRequest[]     @relation("ResolvingAdmin")
   sessions          Session[]
   createdGroups     Group[]           @relation("GroupCreator")
   groupMemberships  GroupMember[]
+  groupMessages     GroupMessage[]
+  notifications     Notification[]    @relation("NotificationRecipient")
+  sentNotifications Notification[]    @relation("NotificationSender")
 
   @@map("users")
 }
@@ -175,12 +183,13 @@ model SwapRequest {
   id                     String            @id @default(cuid())
   requestingUserId       String
   requestingUser         User              @relation("RequestingUser", fields: [requestingUserId], references: [id], onDelete: Cascade)
+  targetUserId           String?
+  targetUser             User?             @relation("TargetUser", fields: [targetUserId], references: [id])
   date                   String
   role                   UserRole
   serviceType            ServiceType?
   reason                 String
   status                 SwapRequestStatus @default(PENDING)
-  adminNotes             String?
   resolvedAt             DateTime?
   resolvedByAdminId      String?
   resolvedByAdmin        User?             @relation("ResolvingAdmin", fields: [resolvedByAdminId], references: [id])
@@ -201,6 +210,7 @@ model Group {
   updatedAt   DateTime      @updatedAt
 
   members     GroupMember[]
+  messages    GroupMessage[]
 
   @@map("groups")
 }
@@ -215,4 +225,34 @@ model GroupMember {
 
   @@unique([groupId, userId])
   @@map("group_members")
+}
+
+model GroupMessage {
+  id        String   @id @default(cuid())
+  content   String
+  imageUrl  String?
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  groupId   String
+  group     Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@index([groupId])
+  @@map("group_messages")
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation("NotificationRecipient", fields: [userId], references: [id], onDelete: Cascade)
+  fromId    String
+  from      User     @relation("NotificationSender", fields: [fromId], references: [id], onDelete: Cascade)
+  type      String   // "mention", "swap_approved", "swap_rejected"
+  message   String
+  link      String?  // e.g. "/swaps", "/"
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId, isRead])
+  @@map("notifications")
 }

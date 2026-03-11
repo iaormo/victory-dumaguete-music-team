@@ -45,25 +45,22 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response): Promise<
     const { date, role, serviceType, isAvailable } = req.body;
     const userId = req.user!.id;
 
-    if (isAvailable) {
-      const availability = await prisma.availability.upsert({
-        where: {
-          userId_date_role_serviceType: {
-            userId,
-            date,
-            role,
-            serviceType: serviceType || null,
-          },
-        },
-        update: { isAvailable: true },
-        create: { userId, date, role, serviceType: serviceType || null, isAvailable: true },
+    const st = serviceType || null;
+
+    const existing = await prisma.availability.findFirst({
+      where: { userId, date, role, serviceType: st },
+    });
+    if (existing) {
+      const availability = await prisma.availability.update({
+        where: { id: existing.id },
+        data: { isAvailable },
       });
       res.json(availability);
     } else {
-      await prisma.availability.deleteMany({
-        where: { userId, date, role, serviceType: serviceType || null },
+      const availability = await prisma.availability.create({
+        data: { userId, date, role, serviceType: st, isAvailable },
       });
-      res.json({ message: 'Availability removed' });
+      res.json(availability);
     }
   } catch (err) {
     console.error('[Availability] Update error:', err);
@@ -74,26 +71,22 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response): Promise<
 router.post('/admin', authenticate, requireAdmin, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { userId, date, role, serviceType, isAvailable } = req.body;
+    const st = serviceType || null;
 
-    if (isAvailable) {
-      const availability = await prisma.availability.upsert({
-        where: {
-          userId_date_role_serviceType: {
-            userId,
-            date,
-            role,
-            serviceType: serviceType || null,
-          },
-        },
-        update: { isAvailable: true },
-        create: { userId, date, role, serviceType: serviceType || null, isAvailable: true },
+    const existing = await prisma.availability.findFirst({
+      where: { userId, date, role, serviceType: st },
+    });
+    if (existing) {
+      const availability = await prisma.availability.update({
+        where: { id: existing.id },
+        data: { isAvailable },
       });
       res.json(availability);
     } else {
-      await prisma.availability.deleteMany({
-        where: { userId, date, role, serviceType: serviceType || null },
+      const availability = await prisma.availability.create({
+        data: { userId, date, role, serviceType: st, isAvailable },
       });
-      res.json({ message: 'Availability removed' });
+      res.json(availability);
     }
   } catch (err) {
     console.error('[Availability] Admin update error:', err);

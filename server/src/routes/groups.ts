@@ -7,6 +7,9 @@
 import { Router, Response } from 'express';
 import prisma from '../config/database.js';
 import { AuthRequest, authenticate } from '../middleware/auth.js';
+import { upload } from '../middleware/upload.js';
+import { uploadFile } from '../config/storage.js';
+import { createMentionNotifications } from './notifications.js';
 
 const router = Router();
 
@@ -76,7 +79,7 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response): Promise<
 
 router.put('/:id', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const userId = req.user!.id;
     const { name, description, isPublic } = req.body;
 
@@ -109,7 +112,7 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response): Promis
 
 router.delete('/:id', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const userId = req.user!.id;
 
     const existing = await prisma.group.findUnique({ where: { id } });
@@ -190,6 +193,102 @@ router.delete('/:id/members/:userId', authenticate, async (req: AuthRequest, res
   } catch (err) {
     console.error('[Groups] Remove member error:', err);
     res.status(500).json({ error: 'Failed to remove member' });
+  }
+});
+
+// Group Messages
+router.get('/:id/messages', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 50;
+
+    const messages = await prisma.groupMessage.findMany({
+      where: { groupId: id },
+      include: {
+        author: { select: { id: true, displayName: true, avatarUrl: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      skip: (page - 1) * limit,
+      take: limit,
+    });
+
+    res.json(messages.reverse());
+  } catch (err) {
+    console.error('[Groups] Messages fetch error:', err);
+    res.status(500).json({ error: 'Failed to fetch messages' });
+  }
+});
+
+router.post('/:id/messages', authenticate, upload.single('image'), async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const { content } = req.body;
+    const userId = req.user!.id;
+
+    if (!content?.trim() && !req.file) {
+      res.status(400).json({ error: 'Message content or image required' });
+      return;
+    }
+
+    // Check membership
+    const isMember = await prisma.groupMember.findUnique({
+      where: { groupId_userId: { groupId: id, userId } },
+    });
+    if (!isMember && !req.user!.isAdmin) {
+      res.status(403).json({ error: 'You must be a member to post' });
+      return;
+    }
+
+    let imageUrl: string | undefined;
+    if (req.file) {
+      try {
+        imageUrl = await uploadFile(req.file.originalname, req.file.buffer, req.file.mimetype);
+      } catch (uploadErr) {
+        console.error('[Groups] Image upload failed:', uploadErr);
+      }
+    }
+
+    const message = await prisma.groupMessage.create({
+      data: {
+        content: content?.trim() || '',
+        imageUrl,
+        authorId: userId,
+        groupId: id,
+      },
+      include: {
+        author: { select: { id: true, displayName: true, avatarUrl: true } },
+      },
+    });
+
+    if (content?.trim()) {
+      createMentionNotifications(content.trim(), userId, '/').catch(() => {});
+    }
+
+    res.status(201).json(message);
+  } catch (err) {
+    console.error('[Groups] Message create error:', err);
+    res.status(500).json({ error: 'Failed to send message' });
+  }
+});
+
+router.delete('/:id/messages/:messageId', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { messageId } = req.params;
+    const msg = await prisma.groupMessage.findUnique({ where: { id: messageId } });
+    if (!msg) {
+      res.status(404).json({ error: 'Message not found' });
+      return;
+    }
+    if (msg.authorId !== req.user!.id && !req.user!.isAdmin) {
+      res.status(403).json({ error: 'Not authorized' });
+      return;
+    }
+    await prisma.groupMessage.delete({ where: { id: messageId } });
+    res.json({ message: 'Message deleted' });
+  } catch (err) {
+    console.error('[Groups] Message delete error:', err);
+    res.status(500).json({ error: 'Failed to delete message' });
   }
 });
 

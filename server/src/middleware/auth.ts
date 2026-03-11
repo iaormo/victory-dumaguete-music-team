@@ -15,10 +15,14 @@ export interface AuthRequest extends Request {
   user?: {
     id: string;
     email: string;
+    username: string | null;
     displayName: string;
     isAdmin: boolean;
     roles: string[];
     avatarUrl: string | null;
+    birthday: string | null;
+    phone: string | null;
+    address: string | null;
   };
 }
 
@@ -70,10 +74,14 @@ export const authenticate = async (
       select: {
         id: true,
         email: true,
+        username: true,
         displayName: true,
         isAdmin: true,
         roles: true,
         avatarUrl: true,
+        birthday: true,
+        phone: true,
+        address: true,
       },
     });
 

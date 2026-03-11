@@ -16,6 +16,7 @@ import MembersPage from './pages/MembersPage';
 import SwapsPage from './pages/SwapsPage';
 import AppLayout from './components/layout/AppLayout';
 import LoadingScreen from './components/common/LoadingScreen';
+import ImpersonationBanner from './components/common/ImpersonationBanner';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, loading } = useAuth();
@@ -52,6 +53,7 @@ const App: React.FC = () => {
   return (
     <BrowserRouter>
       <AuthProvider>
+        <ImpersonationBanner />
         <AppRoutes />
         <Toaster
           position="top-center"

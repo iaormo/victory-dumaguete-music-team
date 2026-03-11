@@ -1,23 +1,23 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Mail, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react';
+import { User, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 
 const LoginPage: React.FC = () => {
   const { login } = useAuth();
-  const [email, setEmail] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !password) return toast.error('Please fill in all fields');
+    if (!identifier || !password) return toast.error('Please fill in all fields');
     setLoading(true);
     try {
-      await login(email, password);
+      await login(identifier, password);
       toast.success('Welcome back!');
     } catch (err: any) {
       toast.error(err.message || 'Login failed');
@@ -47,17 +47,17 @@ const LoginPage: React.FC = () => {
         >
           <div>
             <label className="block text-[11px] font-semibold text-[var(--color-text-secondary)] mb-2 uppercase tracking-wider">
-              Email
+              Username or Email
             </label>
             <div className="relative">
-              <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-[18px] h-[18px] text-gray-400" />
+              <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-[18px] h-[18px] text-gray-400" />
               <input
-                type="email"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
+                type="text"
+                value={identifier}
+                onChange={e => setIdentifier(e.target.value)}
                 className="w-full pl-11 pr-4 py-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] text-[15px] focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
-                placeholder="your@email.com"
-                autoComplete="email"
+                placeholder="Username or email"
+                autoComplete="username"
               />
             </div>
           </div>
@@ -89,7 +89,7 @@ const LoginPage: React.FC = () => {
           <motion.button
             type="submit"
             disabled={loading}
-            className="w-full py-3 bg-primary-500 hover:bg-primary-600 text-white rounded-xl font-semibold text-[15px] flex items-center justify-center gap-2 transition-colors disabled:opacity-50 mt-2"
+            className="w-full py-3 btn-liquid-glass text-white rounded-xl font-semibold text-[15px] flex items-center justify-center gap-2 disabled:opacity-50 mt-2"
             whileTap={{ scale: 0.98 }}
           >
             {loading ? (

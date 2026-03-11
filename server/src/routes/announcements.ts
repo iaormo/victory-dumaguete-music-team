@@ -8,7 +8,8 @@ import { Router, Response } from 'express';
 import prisma from '../config/database.js';
 import { AuthRequest, authenticate, requireAdmin } from '../middleware/auth.js';
 import { upload } from '../middleware/upload.js';
-import { uploadFile } from '../config/minio.js';
+import { uploadFile } from '../config/storage.js';
+import { createMentionNotifications } from './notifications.js';
 
 const router = Router();
 
@@ -59,7 +60,7 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response): Promise<v
   }
 });
 
-router.post('/', authenticate, requireAdmin, upload.single('image'), async (req: AuthRequest, res: Response): Promise<void> => {
+router.post('/', authenticate, upload.single('image'), async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { content } = req.body;
     if (!content?.trim()) {
@@ -69,7 +70,11 @@ router.post('/', authenticate, requireAdmin, upload.single('image'), async (req:
 
     let imageUrl: string | undefined;
     if (req.file) {
-      imageUrl = await uploadFile(req.file.originalname, req.file.buffer, req.file.mimetype);
+      try {
+        imageUrl = await uploadFile(req.file.originalname, req.file.buffer, req.file.mimetype);
+      } catch (uploadErr) {
+        console.error('[Announcements] Image upload failed:', uploadErr);
+      }
     }
 
     const announcement = await prisma.announcement.create({
@@ -84,6 +89,9 @@ router.post('/', authenticate, requireAdmin, upload.single('image'), async (req:
         comments: true,
       },
     });
+
+    // Create mention notifications
+    createMentionNotifications(content.trim(), req.user!.id, '/').catch(() => {});
 
     res.status(201).json(announcement);
   } catch (err) {
@@ -113,6 +121,7 @@ router.post('/:id/comments', authenticate, async (req: AuthRequest, res: Respons
       },
     });
 
+    createMentionNotifications(content.trim(), req.user!.id, '/').catch(() => {});
     res.status(201).json(comment);
   } catch (err) {
     res.status(500).json({ error: 'Failed to add comment' });
@@ -139,6 +148,7 @@ router.post('/comments/:commentId/replies', authenticate, async (req: AuthReques
       },
     });
 
+    createMentionNotifications(content.trim(), req.user!.id, '/').catch(() => {});
     res.status(201).json(reply);
   } catch (err) {
     res.status(500).json({ error: 'Failed to add reply' });
@@ -191,9 +201,18 @@ router.post('/react', authenticate, async (req: AuthRequest, res: Response): Pro
   }
 });
 
-router.delete('/:id', authenticate, requireAdmin, async (_req: AuthRequest, res: Response): Promise<void> => {
+router.delete('/:id', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    await prisma.announcement.delete({ where: { id: String(_req.params.id) } });
+    const announcement = await prisma.announcement.findUnique({ where: { id: String(req.params.id) } });
+    if (!announcement) {
+      res.status(404).json({ error: 'Post not found' });
+      return;
+    }
+    if (announcement.authorId !== req.user!.id && !req.user!.isAdmin) {
+      res.status(403).json({ error: 'Not authorized' });
+      return;
+    }
+    await prisma.announcement.delete({ where: { id: announcement.id } });
     res.json({ message: 'Announcement deleted' });
   } catch (err) {
     res.status(500).json({ error: 'Failed to delete announcement' });

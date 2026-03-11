@@ -1,14 +1,17 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Hash, Lock, Plus, Users, ChevronRight, RefreshCw, X, Check, Globe, Search } from 'lucide-react';
+import { Image as ImageIcon, Send, Trash2 } from 'lucide-react';
 import CreatePost from '../components/feed/CreatePost';
 import PostCard from '../components/feed/PostCard';
 import Avatar from '../components/common/Avatar';
+import MentionInput from '../components/common/MentionInput';
+import MentionText from '../components/common/MentionText';
 import Modal from '../components/common/Modal';
 import { useAuth } from '../context/AuthContext';
 import api from '../api/client';
 import toast from 'react-hot-toast';
-import type { Announcement, Group, User } from '../types';
+import type { Announcement, Group, GroupMessage, User } from '../types';
 
 type Channel = { type: 'general' } | { type: 'group'; group: Group };
 
@@ -316,7 +319,7 @@ const GeneralFeed: React.FC<{
         >
           <RefreshCw className="w-10 h-10 text-gray-300 mx-auto mb-3" />
           <p className="text-[15px] text-gray-500 font-medium">No announcements yet</p>
-          <p className="text-[13px] text-gray-400 mt-1">Posts from admins will appear here</p>
+          <p className="text-[13px] text-gray-400 mt-1">Team posts will appear here</p>
         </motion.div>
       ) : (
         <div className="space-y-4">
@@ -423,20 +426,214 @@ const GroupFeed: React.FC<{
         </div>
       </motion.div>
 
-      {/* Group Chat Placeholder */}
-      <motion.div
-        className="bg-white/80 backdrop-blur-sm rounded-2xl border border-white/60 p-10 text-center"
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-      >
-        <Users className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-        <p className="text-[15px] text-gray-500 font-medium">Group channel</p>
-        <p className="text-[13px] text-gray-400 mt-1">
-          {isMember ? 'Messages in this group will appear here' : 'Join to see messages'}
-        </p>
-      </motion.div>
+      {/* Group Chat */}
+      {isMember ? (
+        <GroupChat groupId={group.id} />
+      ) : (
+        <motion.div
+          className="bg-white/80 backdrop-blur-sm rounded-2xl border border-white/60 p-10 text-center"
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+        >
+          <Users className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+          <p className="text-[15px] text-gray-500 font-medium">Join to see messages</p>
+        </motion.div>
+      )}
     </div>
+  );
+};
+
+/* Group Chat Sub-component */
+const GroupChat: React.FC<{ groupId: string }> = ({ groupId }) => {
+  const { user } = useAuth();
+  const [messages, setMessages] = useState<GroupMessage[]>([]);
+  const [content, setContent] = useState('');
+  const [image, setImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [sending, setSending] = useState(false);
+  const [loadingMsgs, setLoadingMsgs] = useState(true);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const fetchMessages = useCallback(async () => {
+    try {
+      const data = await api.get<GroupMessage[]>(`/groups/${groupId}/messages`);
+      setMessages(data);
+    } catch {
+      console.error('Failed to fetch messages');
+    } finally {
+      setLoadingMsgs(false);
+    }
+  }, [groupId]);
+
+  useEffect(() => {
+    setLoadingMsgs(true);
+    fetchMessages();
+    const interval = setInterval(fetchMessages, 5000);
+    return () => clearInterval(interval);
+  }, [fetchMessages]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  const handleSend = async () => {
+    if (!content.trim() && !image) return;
+    setSending(true);
+    try {
+      const formData = new FormData();
+      if (content.trim()) formData.append('content', content.trim());
+      if (image) formData.append('image', image);
+      await api.upload(`/groups/${groupId}/messages`, formData);
+      setContent('');
+      setImage(null);
+      setImagePreview(null);
+      if (fileRef.current) fileRef.current.value = '';
+      fetchMessages();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to send');
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const handleDelete = async (msgId: string) => {
+    try {
+      await api.delete(`/groups/${groupId}/messages/${msgId}`);
+      fetchMessages();
+    } catch {
+      toast.error('Failed to delete message');
+    }
+  };
+
+  const handleImage = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setImage(file);
+      setImagePreview(URL.createObjectURL(file));
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
+
+  return (
+    <motion.div
+      className="bg-white/80 backdrop-blur-sm rounded-2xl border border-white/60 shadow-[var(--shadow-card)] overflow-hidden flex flex-col"
+      style={{ maxHeight: '60vh' }}
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.1 }}
+    >
+      {/* Messages Area */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-[200px]">
+        {loadingMsgs ? (
+          <div className="flex items-center justify-center py-10">
+            <div className="w-6 h-6 border-2 border-primary-500/30 border-t-primary-500 rounded-full animate-spin" />
+          </div>
+        ) : messages.length === 0 ? (
+          <div className="text-center py-10">
+            <p className="text-[13px] text-gray-400">No messages yet. Start the conversation!</p>
+          </div>
+        ) : (
+          messages.map(msg => {
+            const isOwn = msg.authorId === user?.id;
+            return (
+              <div key={msg.id} className={`flex gap-2.5 group ${isOwn ? 'flex-row-reverse' : ''}`}>
+                <Avatar src={msg.author.avatarUrl} name={msg.author.displayName} size="sm" className="shrink-0 mt-0.5" />
+                <div className={`max-w-[75%] ${isOwn ? 'items-end' : 'items-start'}`}>
+                  <div className={`flex items-center gap-1.5 mb-0.5 ${isOwn ? 'flex-row-reverse' : ''}`}>
+                    <span className="text-[11px] font-semibold text-gray-600">{msg.author.displayName}</span>
+                    <span className="text-[10px] text-gray-400">
+                      {new Date(msg.createdAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                    </span>
+                  </div>
+                  <div className={`relative rounded-2xl px-3.5 py-2 text-[14px] ${
+                    isOwn ? 'bg-primary-500 text-white rounded-tr-sm' : 'bg-gray-100 text-gray-800 rounded-tl-sm'
+                  }`}>
+                    {msg.content && <p className="whitespace-pre-wrap break-words"><MentionText text={msg.content} /></p>}
+                    {msg.imageUrl && (
+                      <img
+                        src={msg.imageUrl}
+                        alt=""
+                        className="mt-1.5 max-w-full max-h-48 rounded-lg object-contain"
+                      />
+                    )}
+                    {(isOwn || user?.isAdmin) && (
+                      <button
+                        onClick={() => handleDelete(msg.id)}
+                        className="absolute -top-1 -right-1 opacity-0 group-hover:opacity-100 w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center transition-opacity"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })
+        )}
+        <div ref={messagesEndRef} />
+      </div>
+
+      {/* Image Preview */}
+      <AnimatePresence>
+        {imagePreview && (
+          <motion.div
+            className="px-4 pb-2"
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+          >
+            <div className="relative inline-block">
+              <img src={imagePreview} alt="" className="h-16 rounded-lg object-contain bg-gray-100" />
+              <button
+                onClick={() => { setImage(null); setImagePreview(null); if (fileRef.current) fileRef.current.value = ''; }}
+                className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-black/60 text-white flex items-center justify-center"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Input Area */}
+      <div className="border-t border-gray-100 p-3 flex items-end gap-2">
+        <button
+          onClick={() => fileRef.current?.click()}
+          className="w-9 h-9 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-500 transition-colors shrink-0"
+        >
+          <ImageIcon className="w-[18px] h-[18px]" />
+        </button>
+        <input ref={fileRef} type="file" accept="image/*" onChange={handleImage} className="hidden" />
+        <MentionInput
+          value={content}
+          onChange={setContent}
+          onKeyDown={handleKeyDown}
+          placeholder="Type a message... @name to tag"
+          className="flex-1 bg-gray-100 rounded-xl px-3.5 py-2 text-[14px] resize-none focus:outline-none focus:ring-2 focus:ring-primary-500 transition-all max-h-24"
+          rows={1}
+        />
+        <motion.button
+          onClick={handleSend}
+          disabled={(!content.trim() && !image) || sending}
+          className="w-9 h-9 rounded-full bg-primary-500 hover:bg-primary-600 text-white flex items-center justify-center transition-colors disabled:opacity-40 shrink-0"
+          whileTap={{ scale: 0.9 }}
+        >
+          {sending ? (
+            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+          ) : (
+            <Send className="w-4 h-4" />
+          )}
+        </motion.button>
+      </div>
+    </motion.div>
   );
 };
 

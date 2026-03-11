@@ -7,7 +7,7 @@
 import { Router, Response } from 'express';
 import { AuthRequest, authenticate } from '../middleware/auth.js';
 import { upload } from '../middleware/upload.js';
-import { uploadFile } from '../config/minio.js';
+import { uploadFile } from '../config/storage.js';
 
 const router = Router();
 

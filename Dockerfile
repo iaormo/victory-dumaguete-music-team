@@ -27,4 +27,4 @@ COPY --from=builder /app/package.json ./
 RUN npx prisma generate
 
 EXPOSE 3001
-CMD ["node", "dist-server/index.js"]
+CMD ["sh", "-c", "npx prisma migrate deploy && node dist-server/index.js"]

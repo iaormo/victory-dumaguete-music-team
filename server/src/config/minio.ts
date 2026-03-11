@@ -52,6 +52,9 @@ export const uploadFile = async (
     'Content-Type': contentType,
   });
 
+  if (process.env.MINIO_PUBLIC_URL) {
+    return `${process.env.MINIO_PUBLIC_URL}/${BUCKET_NAME}/${objectName}`;
+  }
   const protocol = process.env.MINIO_USE_SSL === 'true' ? 'https' : 'http';
   const port = process.env.MINIO_PORT || '9000';
   const endpoint = process.env.MINIO_ENDPOINT || 'localhost';

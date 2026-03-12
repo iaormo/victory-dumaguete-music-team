@@ -26,5 +26,8 @@ COPY --from=builder /app/package.json ./
 
 RUN npx prisma generate
 
+# Create uploads directory for persistent file storage
+RUN mkdir -p /app/uploads
+
 EXPOSE 3001
 CMD ["sh", "-c", "npx prisma migrate deploy && npx prisma db seed && node dist-server/index.js"]

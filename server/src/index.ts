@@ -95,6 +95,9 @@ app.use((err: Error, _req: Request, res: Response, next: NextFunction) => {
   next(err);
 });
 
+// Serve uploaded files (must be before production catch-all)
+app.use('/uploads', express.static(path.resolve(process.cwd(), 'uploads')));
+
 if (process.env.NODE_ENV === 'production') {
   const clientPath = path.resolve(__dirname, '../dist');
   app.use(express.static(clientPath));
@@ -115,7 +118,6 @@ const start = async () => {
     }
 
     await initStorage();
-    app.use('/uploads', express.static(getUploadDir()));
 
     app.listen(PORT, '0.0.0.0', () => {
       console.log(`\n  Victory Dumaguete Music Team API`);

@@ -62,12 +62,32 @@ export interface User {
   username?: string | null;
   displayName: string;
   avatarUrl: string | null;
+  wallpaperUrl?: string | null;
   birthday?: string | null;
   phone?: string | null;
   address?: string | null;
   roles: UserRole[];
   isAdmin: boolean;
   createdAt?: string;
+}
+
+export interface DirectConversation {
+  id: string;
+  otherUser: Pick<User, 'id' | 'displayName' | 'avatarUrl'>;
+  lastMessage: DirectMessage | null;
+  unreadCount: number;
+  updatedAt: string;
+}
+
+export interface DirectMessage {
+  id: string;
+  content: string;
+  imageUrl?: string | null;
+  senderId: string;
+  sender: Pick<User, 'id' | 'displayName' | 'avatarUrl'>;
+  conversationId: string;
+  isRead: boolean;
+  createdAt: string;
 }
 
 export interface Availability {

@@ -26,6 +26,7 @@ import swapRoutes from './routes/swaps.js';
 import uploadRoutes from './routes/upload.js';
 import groupRoutes from './routes/groups.js';
 import notificationRoutes from './routes/notifications.js';
+import messageRoutes from './routes/messages.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -52,6 +53,7 @@ app.use('/api/swaps', swapRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/groups', groupRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/messages', messageRoutes);
 
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
@@ -64,7 +66,7 @@ app.get('/api/badge-counts', authMiddleware, async (req: AuthRequest, res) => {
     const feedLastRead = req.query.feedLastRead as string | undefined;
     const swapsLastRead = req.query.swapsLastRead as string | undefined;
 
-    const [newPosts, pendingSwaps, unreadNotifications] = await Promise.all([
+    const [newPosts, pendingSwaps, unreadNotifications, unreadMessages] = await Promise.all([
       feedLastRead
         ? prisma.announcement.count({ where: { createdAt: { gt: new Date(feedLastRead) } } })
         : prisma.announcement.count(),
@@ -73,9 +75,16 @@ app.get('/api/badge-counts', authMiddleware, async (req: AuthRequest, res) => {
         ? prisma.swapRequest.count({ where: { status: 'PENDING' } })
         : prisma.swapRequest.count({ where: { targetUserId: userId, status: 'PENDING' } }),
       prisma.notification.count({ where: { userId, isRead: false } }),
+      prisma.directMessage.count({
+        where: {
+          conversation: { OR: [{ user1Id: userId }, { user2Id: userId }] },
+          senderId: { not: userId },
+          isRead: false,
+        },
+      }),
     ]);
 
-    res.json({ newPosts, pendingSwaps, unreadNotifications });
+    res.json({ newPosts, pendingSwaps, unreadNotifications, unreadMessages });
   } catch (err) {
     console.error('[BadgeCounts] Error:', err);
     res.status(500).json({ error: 'Failed to fetch counts' });

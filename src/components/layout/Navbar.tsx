@@ -349,7 +349,7 @@ const Navbar: React.FC = () => {
               </div>
 
               <div className="flex-1 overflow-y-auto p-4 space-y-2">
-                {helpSections.map((section, si) => (
+                {helpSections.filter(section => section.title !== 'Admin Features' || user?.isAdmin).map((section, si) => (
                   <div key={si} className="rounded-xl border border-gray-100 overflow-hidden">
                     <button
                       onClick={() => setExpandedSection(expandedSection === si ? null : si)}

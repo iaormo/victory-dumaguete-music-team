@@ -38,6 +38,7 @@ const CalendarPage: React.FC = () => {
   const [swapReason, setSwapReason] = useState('');
   const [swapTargetId, setSwapTargetId] = useState('');
   const [swapLoading, setSwapLoading] = useState(false);
+  const [allUsers, setAllUsers] = useState<{ id: string; displayName: string; avatarUrl: string | null; roles: string[] }[]>([]);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -141,6 +142,9 @@ const CalendarPage: React.FC = () => {
     setSwapReason('');
     setSwapTargetId('');
     setShowSwapModal(true);
+    if (allUsers.length === 0) {
+      api.get<any[]>('/users').then(data => setAllUsers(data)).catch(() => {});
+    }
   };
 
   const handleSwapRequest = async () => {
@@ -200,13 +204,13 @@ const CalendarPage: React.FC = () => {
   // "Not Available" = members who explicitly marked dates as not available
   const notAvailableSummary = dedupeByUser(allFilteredNA);
 
-  // Find same-role available members for swap target selection
+  // Find same-role team members for swap target selection
   const getSwapTargets = () => {
     if (!swapAvail) return [];
-    return availabilities
-      .filter(a => a.date === swapAvail.date && a.role === swapAvail.role && a.userId !== user?.id && a.serviceType === swapAvail.serviceType)
-      .map(a => a.user)
-      .filter((u): u is NonNullable<typeof u> => !!u);
+    // Show all team members who have the same role, not just those available on that date
+    return allUsers
+      .filter(u => u.id !== user?.id && u.roles.includes(swapAvail.role))
+      .map(u => ({ id: u.id, displayName: u.displayName, avatarUrl: u.avatarUrl }));
   };
 
   return (
@@ -677,13 +681,13 @@ const CalendarPage: React.FC = () => {
               </p>
             </div>
 
-            {/* Select swap target - same role members available that day */}
-            {getSwapTargets().length > 0 && (
-              <div>
-                <label className="block text-[11px] font-semibold text-[var(--color-text-secondary)] mb-2 uppercase tracking-wider">
-                  Swap with (required)
-                </label>
-                <div className="space-y-2">
+            {/* Select swap target - all same-role members */}
+            <div>
+              <label className="block text-[11px] font-semibold text-[var(--color-text-secondary)] mb-2 uppercase tracking-wider">
+                Swap with (required)
+              </label>
+              {getSwapTargets().length > 0 ? (
+                <div className="space-y-2 max-h-48 overflow-y-auto">
                   {getSwapTargets().map(t => (
                     <button key={t.id} onClick={() => setSwapTargetId(t.id)}
                       className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-all ${
@@ -695,8 +699,12 @@ const CalendarPage: React.FC = () => {
                     </button>
                   ))}
                 </div>
-              </div>
-            )}
+              ) : (
+                <p className="text-[13px] text-gray-400 py-3 text-center">
+                  {allUsers.length === 0 ? 'Loading members...' : 'No other members have this role'}
+                </p>
+              )}
+            </div>
 
             <div>
               <label className="block text-[11px] font-semibold text-[var(--color-text-secondary)] mb-2 uppercase tracking-wider">Reason</label>

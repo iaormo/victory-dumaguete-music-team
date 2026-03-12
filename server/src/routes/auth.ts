@@ -20,6 +20,7 @@ const USER_SELECT = {
   username: true,
   displayName: true,
   avatarUrl: true,
+  wallpaperUrl: true,
   birthday: true,
   phone: true,
   address: true,
@@ -175,7 +176,7 @@ router.get('/me', authenticate, async (req: AuthRequest, res: Response): Promise
   }
 });
 
-router.put('/profile', authenticate, upload.single('avatar'), async (req: AuthRequest, res: Response): Promise<void> => {
+router.put('/profile', authenticate, upload.fields([{ name: 'avatar', maxCount: 1 }, { name: 'wallpaper', maxCount: 1 }]), async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     if (!req.user) {
       res.status(401).json({ error: 'Not authenticated' });
@@ -185,6 +186,7 @@ router.put('/profile', authenticate, upload.single('avatar'), async (req: AuthRe
     const { displayName, username, birthday, phone, address } = req.body;
     const updateData: Record<string, unknown> = {};
     let warning: string | undefined;
+    const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
 
     if (displayName) updateData.displayName = displayName;
     if (birthday !== undefined) updateData.birthday = birthday ? new Date(birthday) : null;
@@ -210,13 +212,25 @@ router.put('/profile', authenticate, upload.single('avatar'), async (req: AuthRe
       }
     }
 
-    if (req.file) {
+    const avatarFile = files?.avatar?.[0];
+    if (avatarFile) {
       try {
-        const avatarUrl = await uploadFile(req.file.originalname, req.file.buffer, req.file.mimetype);
+        const avatarUrl = await uploadFile(avatarFile.originalname, avatarFile.buffer, avatarFile.mimetype);
         updateData.avatarUrl = avatarUrl;
       } catch (uploadErr) {
-        console.error('[Auth] Avatar upload failed (MinIO may be down):', uploadErr);
+        console.error('[Auth] Avatar upload failed:', uploadErr);
         warning = 'Photo upload failed (storage unavailable), but other changes were saved.';
+      }
+    }
+
+    const wallpaperFile = files?.wallpaper?.[0];
+    if (wallpaperFile) {
+      try {
+        const wallpaperUrl = await uploadFile(wallpaperFile.originalname, wallpaperFile.buffer, wallpaperFile.mimetype);
+        updateData.wallpaperUrl = wallpaperUrl;
+      } catch (uploadErr) {
+        console.error('[Auth] Wallpaper upload failed:', uploadErr);
+        warning = (warning ? warning + ' ' : '') + 'Wallpaper upload failed.';
       }
     }
 

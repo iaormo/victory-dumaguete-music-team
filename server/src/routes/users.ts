@@ -22,6 +22,7 @@ router.get('/', authenticate, async (_req: AuthRequest, res: Response): Promise<
         username: true,
         displayName: true,
         avatarUrl: true,
+        wallpaperUrl: true,
         birthday: true,
         phone: true,
         address: true,

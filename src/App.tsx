@@ -14,6 +14,7 @@ import CalendarPage from './pages/CalendarPage';
 import ProfilePage from './pages/ProfilePage';
 import MembersPage from './pages/MembersPage';
 import SwapsPage from './pages/SwapsPage';
+import MessagesPage from './pages/MessagesPage';
 import AppLayout from './components/layout/AppLayout';
 import LoadingScreen from './components/common/LoadingScreen';
 import ImpersonationBanner from './components/common/ImpersonationBanner';
@@ -41,6 +42,7 @@ const AppRoutes: React.FC = () => {
         <Route path="/" element={<FeedPage />} />
         <Route path="/calendar" element={<CalendarPage />} />
         <Route path="/swaps" element={<SwapsPage />} />
+        <Route path="/messages" element={<MessagesPage />} />
         <Route path="/members" element={<MembersPage />} />
         <Route path="/profile" element={<ProfilePage />} />
       </Route>

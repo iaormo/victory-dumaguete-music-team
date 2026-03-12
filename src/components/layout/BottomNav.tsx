@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Home, CalendarDays, ArrowLeftRight, Users, User } from 'lucide-react';
+import { Home, CalendarDays, ArrowLeftRight, Users, MessageCircle } from 'lucide-react';
 import api from '../../api/client';
 
 const FEED_LAST_READ_KEY = 'vdmt_feed_last_read';
@@ -11,19 +11,20 @@ const navItems = [
   { to: '/', icon: Home, label: 'Feed', badgeKey: 'newPosts' as const },
   { to: '/calendar', icon: CalendarDays, label: 'Calendar', badgeKey: null },
   { to: '/swaps', icon: ArrowLeftRight, label: 'Swaps', badgeKey: 'pendingSwaps' as const },
+  { to: '/messages', icon: MessageCircle, label: 'DMs', badgeKey: 'unreadMessages' as const },
   { to: '/members', icon: Users, label: 'Team', badgeKey: null },
-  { to: '/profile', icon: User, label: 'Profile', badgeKey: null },
 ];
 
 interface BadgeCounts {
   newPosts: number;
   pendingSwaps: number;
   unreadNotifications: number;
+  unreadMessages: number;
 }
 
 const BottomNav: React.FC = () => {
   const location = useLocation();
-  const [counts, setCounts] = useState<BadgeCounts>({ newPosts: 0, pendingSwaps: 0, unreadNotifications: 0 });
+  const [counts, setCounts] = useState<BadgeCounts>({ newPosts: 0, pendingSwaps: 0, unreadNotifications: 0, unreadMessages: 0 });
 
   // Mark pages as read when visiting them
   useEffect(() => {

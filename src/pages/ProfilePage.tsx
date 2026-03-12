@@ -1,6 +1,6 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Camera, Mail, Shield, Save, Lock, Eye, EyeOff, User as UserIcon, AtSign, Cake, Phone, MapPin } from 'lucide-react';
+import { Camera, Mail, Shield, Save, Lock, Eye, EyeOff, User as UserIcon, AtSign, Cake, Phone, MapPin, ImagePlus } from 'lucide-react';
 import Avatar from '../components/common/Avatar';
 import Badge from '../components/common/Badge';
 import { useAuth } from '../context/AuthContext';
@@ -8,9 +8,41 @@ import { UserRole } from '../types';
 import api from '../api/client';
 import toast from 'react-hot-toast';
 
+const compressImage = (file: File, maxWidth: number, quality: number): Promise<File> => {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      let w = img.width;
+      let h = img.height;
+      if (w > maxWidth) {
+        h = (h * maxWidth) / w;
+        w = maxWidth;
+      }
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d')!;
+      ctx.drawImage(img, 0, 0, w, h);
+      canvas.toBlob(
+        (blob) => {
+          if (blob) {
+            resolve(new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' }));
+          } else {
+            resolve(file);
+          }
+        },
+        'image/jpeg',
+        quality
+      );
+    };
+    img.src = URL.createObjectURL(file);
+  });
+};
+
 const ProfilePage: React.FC = () => {
   const { user, updateProfile } = useAuth();
   const fileRef = useRef<HTMLInputElement>(null);
+  const wallpaperRef = useRef<HTMLInputElement>(null);
   const [displayName, setDisplayName] = useState(user?.displayName || '');
   const [username, setUsername] = useState(user?.username || '');
   const [birthday, setBirthday] = useState(user?.birthday ? new Date(user.birthday).toISOString().split('T')[0] : '');
@@ -18,6 +50,8 @@ const ProfilePage: React.FC = () => {
   const [address, setAddress] = useState(user?.address || '');
   const [preview, setPreview] = useState<string | null>(null);
   const [avatar, setAvatar] = useState<File | null>(null);
+  const [wallpaperPreview, setWallpaperPreview] = useState<string | null>(null);
+  const [wallpaper, setWallpaper] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
 
   // Password change state
@@ -36,6 +70,21 @@ const ProfilePage: React.FC = () => {
     }
   };
 
+  const handleWallpaper = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      try {
+        const compressed = await compressImage(file, 1200, 0.7);
+        setWallpaper(compressed);
+        setWallpaperPreview(URL.createObjectURL(compressed));
+        toast.success(`Wallpaper compressed: ${(file.size / 1024).toFixed(0)}KB → ${(compressed.size / 1024).toFixed(0)}KB`);
+      } catch {
+        setWallpaper(file);
+        setWallpaperPreview(URL.createObjectURL(file));
+      }
+    }
+  }, []);
+
   const handleSave = async () => {
     setSaving(true);
     try {
@@ -47,6 +96,7 @@ const ProfilePage: React.FC = () => {
       if (phone !== (user?.phone || '')) formData.append('phone', phone);
       if (address !== (user?.address || '')) formData.append('address', address);
       if (avatar) formData.append('avatar', avatar);
+      if (wallpaper) formData.append('wallpaper', wallpaper);
       const result = await updateProfile(formData);
       if (result?.warning) {
         toast(result.warning, { icon: '\u26a0\ufe0f' });
@@ -54,6 +104,8 @@ const ProfilePage: React.FC = () => {
         toast.success('Profile updated!');
       }
       setAvatar(null);
+      setWallpaper(null);
+      setWallpaperPreview(null);
     } catch (err: any) {
       toast.error(err.message || 'Failed to update');
     } finally {
@@ -83,7 +135,7 @@ const ProfilePage: React.FC = () => {
   if (!user) return null;
 
   const origBirthday = user.birthday ? new Date(user.birthday).toISOString().split('T')[0] : '';
-  const hasChanges = displayName !== user.displayName || username !== (user.username || '') || birthday !== origBirthday || phone !== (user.phone || '') || address !== (user.address || '') || avatar !== null;
+  const hasChanges = displayName !== user.displayName || username !== (user.username || '') || birthday !== origBirthday || phone !== (user.phone || '') || address !== (user.address || '') || avatar !== null || wallpaper !== null;
 
   return (
     <div className="space-y-4">
@@ -92,7 +144,20 @@ const ProfilePage: React.FC = () => {
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
       >
-        <div className="h-32 bg-gradient-to-r from-primary-500 to-primary-700 relative" />
+        <div className="h-32 relative overflow-hidden group/wall cursor-pointer" onClick={() => wallpaperRef.current?.click()}>
+          {(wallpaperPreview || user.wallpaperUrl) ? (
+            <img src={wallpaperPreview || user.wallpaperUrl!} alt="Wallpaper" className="w-full h-full object-cover" />
+          ) : (
+            <div className="w-full h-full bg-gradient-to-r from-primary-500 to-primary-700" />
+          )}
+          <div className="absolute inset-0 bg-black/0 group-hover/wall:bg-black/30 transition-colors flex items-center justify-center">
+            <div className="opacity-0 group-hover/wall:opacity-100 transition-opacity flex items-center gap-1.5 text-white text-[12px] font-semibold bg-black/50 px-3 py-1.5 rounded-full">
+              <ImagePlus className="w-3.5 h-3.5" />
+              Change Wallpaper
+            </div>
+          </div>
+          <input ref={wallpaperRef} type="file" accept="image/*" onChange={handleWallpaper} className="hidden" />
+        </div>
 
         <div className="relative px-6 pb-6">
           <div className="flex justify-center -mt-14">

@@ -37,7 +37,7 @@ const validateUsername = (username: string): string | null => {
 
 router.post('/register', upload.single('avatar'), async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { email, password, displayName, roles, username } = req.body;
+    const { email, password, displayName, roles, username, phone, address } = req.body;
 
     if (!email || !password || !displayName) {
       res.status(400).json({ error: 'Email, password, and display name are required' });
@@ -84,6 +84,8 @@ router.post('/register', upload.single('avatar'), async (req: AuthRequest, res: 
         password: hashedPassword,
         displayName,
         avatarUrl,
+        phone: phone?.trim() || null,
+        address: address?.trim() || null,
         roles: parsedRoles,
         isAdmin: parsedRoles.includes('ADMIN'),
       },

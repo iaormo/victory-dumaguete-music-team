@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Mail, Lock, User, Camera, ArrowRight, Check, AtSign } from 'lucide-react';
+import { Mail, Lock, User, Camera, ArrowRight, Check, AtSign, Phone, MapPin } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { UserRole, ROLE_LABELS, ALL_ROLES } from '../types';
 import toast from 'react-hot-toast';
@@ -14,6 +14,8 @@ const RegisterPage: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [roles, setRoles] = useState<UserRole[]>([]);
+  const [phone, setPhone] = useState('');
+  const [address, setAddress] = useState('');
   const [avatar, setAvatar] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -43,6 +45,8 @@ const RegisterPage: React.FC = () => {
       formData.append('password', password);
       formData.append('roles', JSON.stringify(roles));
       if (username.trim()) formData.append('username', username.trim());
+      if (phone.trim()) formData.append('phone', phone.trim());
+      if (address.trim()) formData.append('address', address.trim());
       if (avatar) formData.append('avatar', avatar);
 
       await register(formData);
@@ -142,6 +146,34 @@ const RegisterPage: React.FC = () => {
                 onChange={e => setPassword(e.target.value)}
                 className="w-full pl-11 pr-4 py-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] text-[15px] focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
                 placeholder="Min 6 characters"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-semibold text-[var(--color-text-secondary)] mb-2 uppercase tracking-wider">Phone <span className="text-gray-400 normal-case">(optional)</span></label>
+            <div className="relative">
+              <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-[18px] h-[18px] text-gray-400" />
+              <input
+                type="tel"
+                value={phone}
+                onChange={e => setPhone(e.target.value)}
+                className="w-full pl-11 pr-4 py-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] text-[15px] focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
+                placeholder="Phone number"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-semibold text-[var(--color-text-secondary)] mb-2 uppercase tracking-wider">Address <span className="text-gray-400 normal-case">(optional)</span></label>
+            <div className="relative">
+              <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 w-[18px] h-[18px] text-gray-400" />
+              <input
+                type="text"
+                value={address}
+                onChange={e => setAddress(e.target.value)}
+                className="w-full pl-11 pr-4 py-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] text-[15px] focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
+                placeholder="Your address"
               />
             </div>
           </div>

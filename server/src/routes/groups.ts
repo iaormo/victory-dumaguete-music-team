@@ -135,7 +135,7 @@ router.delete('/:id', authenticate, async (req: AuthRequest, res: Response): Pro
 
 router.post('/:id/members', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const { userId: targetUserId } = req.body;
     const requesterId = req.user!.id;
 
@@ -168,7 +168,8 @@ router.post('/:id/members', authenticate, async (req: AuthRequest, res: Response
 
 router.delete('/:id/members/:userId', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { id, userId: targetUserId } = req.params;
+    const id = req.params.id as string;
+    const targetUserId = req.params.userId as string;
     const requesterId = req.user!.id;
 
     const group = await prisma.group.findUnique({ where: { id } });
@@ -199,7 +200,7 @@ router.delete('/:id/members/:userId', authenticate, async (req: AuthRequest, res
 // Group Messages
 router.get('/:id/messages', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 50;
 
@@ -222,7 +223,7 @@ router.get('/:id/messages', authenticate, async (req: AuthRequest, res: Response
 
 router.post('/:id/messages', authenticate, upload.single('image'), async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const { content } = req.body;
     const userId = req.user!.id;
 
@@ -274,7 +275,7 @@ router.post('/:id/messages', authenticate, upload.single('image'), async (req: A
 
 router.delete('/:id/messages/:messageId', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { messageId } = req.params;
+    const messageId = req.params.messageId as string;
     const msg = await prisma.groupMessage.findUnique({ where: { id: messageId } });
     if (!msg) {
       res.status(404).json({ error: 'Message not found' });

@@ -281,7 +281,7 @@ router.put('/password', authenticate, async (req: AuthRequest, res: Response): P
 
 router.post('/impersonate/:userId', authenticate, requireAdmin, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const targetUserId = req.params.userId;
+    const targetUserId = req.params.userId as string;
 
     if (targetUserId === req.user?.id) {
       res.status(400).json({ error: 'Cannot impersonate yourself' });

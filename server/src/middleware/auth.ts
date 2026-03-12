@@ -90,8 +90,11 @@ export const authenticate = async (
       return;
     }
 
-    req.user = user;
-    await cacheSet(cacheKey, JSON.stringify(user), 600);
+    req.user = {
+      ...user,
+      birthday: user.birthday ? user.birthday.toISOString() : null,
+    };
+    await cacheSet(cacheKey, JSON.stringify(req.user), 600);
 
     next();
   } catch (err) {

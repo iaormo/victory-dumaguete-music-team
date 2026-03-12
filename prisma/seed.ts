@@ -14,18 +14,10 @@ async function main() {
 
   const password = await bcrypt.hash('victory2024', 12);
 
-  // Remove all non-admin users and their related data
-  await prisma.user.deleteMany({
-    where: { isAdmin: false },
-  });
-
-  // Upsert admin account
+  // Upsert admin account (does NOT delete existing users)
   await prisma.user.upsert({
     where: { email: 'admin@victorydumaguete.com' },
-    update: {
-      displayName: 'admin',
-      roles: ['ADMIN'],
-    },
+    update: {},
     create: {
       email: 'admin@victorydumaguete.com',
       password,

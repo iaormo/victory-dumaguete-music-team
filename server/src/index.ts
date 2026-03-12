@@ -5,9 +5,10 @@
  * @version 1.0.0
  */
 
-import express from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
+import multer from 'multer';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -79,6 +80,19 @@ app.get('/api/badge-counts', authMiddleware, async (req: AuthRequest, res) => {
     console.error('[BadgeCounts] Error:', err);
     res.status(500).json({ error: 'Failed to fetch counts' });
   }
+});
+
+// Handle multer file size errors gracefully
+app.use((err: Error, _req: Request, res: Response, next: NextFunction) => {
+  if (err instanceof multer.MulterError) {
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      res.status(400).json({ error: 'File too large. Maximum size is 10MB.' });
+      return;
+    }
+    res.status(400).json({ error: err.message });
+    return;
+  }
+  next(err);
 });
 
 if (process.env.NODE_ENV === 'production') {

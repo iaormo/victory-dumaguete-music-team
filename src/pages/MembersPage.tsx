@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Users, UserPlus, Search, Shield, Edit3, Check, X, LogIn, Cake, Phone, MapPin, KeyRound } from 'lucide-react';
+import { Users, UserPlus, Search, Shield, Edit3, Check, X, LogIn, Cake, Phone, MapPin, KeyRound, Mail, ChevronDown } from 'lucide-react';
 import Avatar from '../components/common/Avatar';
 import Badge from '../components/common/Badge';
 import Modal from '../components/common/Modal';
@@ -23,6 +23,7 @@ const MembersPage: React.FC = () => {
   const [editDisplayName, setEditDisplayName] = useState('');
   const [savingEdit, setSavingEdit] = useState(false);
   const [resettingPassword, setResettingPassword] = useState(false);
+  const [expandedMember, setExpandedMember] = useState<string | null>(null);
 
   const [newName, setNewName] = useState('');
   const [newEmail, setNewEmail] = useState('');
@@ -157,71 +158,98 @@ const MembersPage: React.FC = () => {
             {filteredMembers.map((member, i) => (
               <motion.div
                 key={member.id}
-                className="flex items-center gap-3 p-3 rounded-xl hover:bg-[var(--color-surface)] transition-colors cursor-pointer group"
+                className="rounded-xl hover:bg-[var(--color-surface)] transition-colors group"
                 initial={{ opacity: 0, x: -8 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: i * 0.03 }}
               >
-                <Avatar src={member.avatarUrl} name={member.displayName} size="md" />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className="text-[14px] font-semibold truncate">{member.displayName}</p>
-                    {member.isAdmin && <Shield className="w-3.5 h-3.5 text-primary-500 shrink-0" />}
-                  </div>
-                  {(member.birthday || member.phone || member.address) && (
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5 text-[11px] text-[var(--color-text-muted)]">
-                      {member.birthday && (
-                        <span className="flex items-center gap-1">
-                          <Cake className="w-3 h-3" />
-                          {new Date(member.birthday).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                        </span>
-                      )}
-                      {member.phone && (
-                        <span className="flex items-center gap-1">
-                          <Phone className="w-3 h-3" />
-                          {member.phone}
-                        </span>
-                      )}
-                      {member.address && (
-                        <span className="flex items-center gap-1">
-                          <MapPin className="w-3 h-3" />
-                          {member.address}
-                        </span>
-                      )}
+                <div
+                  className="flex items-center gap-3 p-3 cursor-pointer"
+                  onClick={() => setExpandedMember(expandedMember === member.id ? null : member.id)}
+                >
+                  <Avatar src={member.avatarUrl} name={member.displayName} size="md" />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="text-[14px] font-semibold truncate">{member.displayName}</p>
+                      {member.isAdmin && <Shield className="w-3.5 h-3.5 text-primary-500 shrink-0" />}
                     </div>
-                  )}
-                  <div className="flex flex-wrap gap-1.5 mt-1.5">
-                    {member.roles.filter(r => r !== UserRole.ADMIN).map(r => (
-                      <Badge key={r} role={r} size="sm" />
-                    ))}
+                    <div className="flex flex-wrap gap-1.5 mt-1.5">
+                      {member.roles.filter(r => r !== UserRole.ADMIN).map(r => (
+                        <Badge key={r} role={r} size="sm" />
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    {currentUser?.isAdmin && (
+                      <>
+                        {member.id !== currentUser.id && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleImpersonate(member.id); }}
+                            className="opacity-0 group-hover:opacity-100 w-8 h-8 rounded-full hover:bg-blue-100 flex items-center justify-center transition-all"
+                            title="Login as this user"
+                          >
+                            <LogIn className="w-3.5 h-3.5 text-blue-500" />
+                          </button>
+                        )}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingUser(member);
+                            setEditRoles([...member.roles]);
+                            setEditDisplayName(member.displayName);
+                            setEditBirthday(member.birthday ? new Date(member.birthday).toISOString().split('T')[0] : '');
+                            setEditPhone(member.phone || '');
+                            setEditAddress(member.address || '');
+                          }}
+                          className="opacity-0 group-hover:opacity-100 w-8 h-8 rounded-full hover:bg-gray-200 flex items-center justify-center transition-all"
+                        >
+                          <Edit3 className="w-3.5 h-3.5 text-[var(--color-text-secondary)]" />
+                        </button>
+                      </>
+                    )}
+                    <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${expandedMember === member.id ? 'rotate-180' : ''}`} />
                   </div>
                 </div>
-                {currentUser?.isAdmin && (
-                  <div className="flex items-center gap-1 shrink-0">
-                    {member.id !== currentUser.id && (
-                      <button
-                        onClick={() => handleImpersonate(member.id)}
-                        className="opacity-0 group-hover:opacity-100 w-8 h-8 rounded-full hover:bg-blue-100 flex items-center justify-center transition-all"
-                        title="Login as this user"
-                      >
-                        <LogIn className="w-3.5 h-3.5 text-blue-500" />
-                      </button>
-                    )}
-                    <button
-                      onClick={() => {
-                        setEditingUser(member);
-                        setEditRoles([...member.roles]);
-                        setEditDisplayName(member.displayName);
-                        setEditBirthday(member.birthday ? new Date(member.birthday).toISOString().split('T')[0] : '');
-                        setEditPhone(member.phone || '');
-                        setEditAddress(member.address || '');
-                      }}
-                      className="opacity-0 group-hover:opacity-100 w-8 h-8 rounded-full hover:bg-gray-200 flex items-center justify-center transition-all"
+
+                <AnimatePresence>
+                  {expandedMember === member.id && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="overflow-hidden"
                     >
-                      <Edit3 className="w-3.5 h-3.5 text-[var(--color-text-secondary)]" />
-                    </button>
-                  </div>
-                )}
+                      <div className="px-3 pb-3 ml-[52px] space-y-1.5">
+                        <div className="flex items-center gap-2 text-[13px] text-[var(--color-text-secondary)]">
+                          <Mail className="w-3.5 h-3.5 text-gray-400" />
+                          <span>{member.email}</span>
+                        </div>
+                        {member.phone && (
+                          <div className="flex items-center gap-2 text-[13px] text-[var(--color-text-secondary)]">
+                            <Phone className="w-3.5 h-3.5 text-gray-400" />
+                            <a href={`tel:${member.phone}`} className="text-primary-500 hover:underline">{member.phone}</a>
+                          </div>
+                        )}
+                        {member.address && (
+                          <div className="flex items-center gap-2 text-[13px] text-[var(--color-text-secondary)]">
+                            <MapPin className="w-3.5 h-3.5 text-gray-400" />
+                            <span>{member.address}</span>
+                          </div>
+                        )}
+                        {member.birthday && (
+                          <div className="flex items-center gap-2 text-[13px] text-[var(--color-text-secondary)]">
+                            <Cake className="w-3.5 h-3.5 text-gray-400" />
+                            <span>{new Date(member.birthday).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</span>
+                          </div>
+                        )}
+                        {!member.phone && !member.address && !member.birthday && (
+                          <p className="text-[12px] text-gray-400 italic">No additional info available</p>
+                        )}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </motion.div>
             ))}
           </div>

@@ -1,12 +1,13 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Bell, LogOut, User, ChevronDown, Shield, HelpCircle, X, ChevronRight, CheckCheck } from 'lucide-react';
+import { Bell, LogOut, User, ChevronDown, Shield, HelpCircle, X, ChevronRight, CheckCheck, Download, Share } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useAuth } from '../../context/AuthContext';
 import Avatar from '../common/Avatar';
 import api from '../../api/client';
 import type { AppNotification } from '../../types';
+import { usePWAInstall } from '../../hooks/usePWAInstall';
 
 const helpSections = [
   {
@@ -64,6 +65,7 @@ const helpSections = [
 const Navbar: React.FC = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const { canInstall, install, isIOS, showIOSPrompt, setShowIOSPrompt } = usePWAInstall();
   const [menuOpen, setMenuOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [bellOpen, setBellOpen] = useState(false);
@@ -122,10 +124,21 @@ const Navbar: React.FC = () => {
       <nav className="sticky top-0 z-40 glass-dark border-b border-white/10">
         <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2.5 text-white">
-            <span className="font-bold text-[15px] tracking-tight">Victory Music Team Dumaguete</span>
+            <span className="font-bold text-[15px] tracking-tight sm:hidden">VDMT</span>
+            <span className="font-bold text-[15px] tracking-tight hidden sm:inline">Victory Music Team Dumaguete</span>
           </Link>
 
           <div className="flex items-center gap-2">
+            {canInstall && (
+              <button
+                onClick={install}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-white/15 hover:bg-white/25 transition-colors text-white text-[12px] font-semibold"
+                title="Install App"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Install</span>
+              </button>
+            )}
             <div ref={bellRef} className="relative">
               <button
                 onClick={() => setBellOpen(!bellOpen)}
@@ -260,6 +273,54 @@ const Navbar: React.FC = () => {
           </div>
         </div>
       </nav>
+
+      {/* iOS Install Instructions Modal */}
+      <AnimatePresence>
+        {showIOSPrompt && (
+          <motion.div
+            className="fixed inset-0 z-50 flex items-end justify-center p-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowIOSPrompt(false)} />
+            <motion.div
+              className="relative w-full max-w-sm bg-white rounded-2xl shadow-2xl overflow-hidden mb-4"
+              initial={{ opacity: 0, y: 40 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 40 }}
+            >
+              <div className="p-5 text-center">
+                <div className="w-12 h-12 bg-primary-100 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                  <Download className="w-6 h-6 text-primary-600" />
+                </div>
+                <h3 className="text-[16px] font-bold mb-2">Install VDMT App</h3>
+                <p className="text-[13px] text-gray-500 mb-4">To install this app on your iPhone:</p>
+                <div className="space-y-3 text-left">
+                  <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-xl">
+                    <span className="w-6 h-6 bg-primary-500 text-white rounded-full flex items-center justify-center text-[12px] font-bold shrink-0">1</span>
+                    <p className="text-[13px]">Tap the <Share className="w-4 h-4 inline text-primary-500 -mt-0.5" /> <strong>Share</strong> button in Safari</p>
+                  </div>
+                  <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-xl">
+                    <span className="w-6 h-6 bg-primary-500 text-white rounded-full flex items-center justify-center text-[12px] font-bold shrink-0">2</span>
+                    <p className="text-[13px]">Scroll down and tap <strong>"Add to Home Screen"</strong></p>
+                  </div>
+                  <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-xl">
+                    <span className="w-6 h-6 bg-primary-500 text-white rounded-full flex items-center justify-center text-[12px] font-bold shrink-0">3</span>
+                    <p className="text-[13px]">Tap <strong>"Add"</strong> to install</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowIOSPrompt(false)}
+                  className="mt-4 w-full py-2.5 bg-primary-500 text-white rounded-xl text-[14px] font-semibold hover:bg-primary-600 transition-colors"
+                >
+                  Got it
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Help & FAQ Modal */}
       <AnimatePresence>
